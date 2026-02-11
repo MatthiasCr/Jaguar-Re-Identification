@@ -1,0 +1,7 @@
+test/*
+train/*
+wandb/*
+checkpoints/*
+test.csv
+train.csv
+sample_submission.csv
