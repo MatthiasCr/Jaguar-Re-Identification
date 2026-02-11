@@ -5,3 +5,6 @@ checkpoints/*
 test.csv
 train.csv
 sample_submission.csv
+data/*
+*/wandb/*
+.env
