@@ -125,7 +125,7 @@ def fit(
     scheduler,
     label_encoder=None,
     wandb_run=None,
-    checkpoint_name="arcface_best.pth",
+    checkpoint_name="best_model.pth",
 ):
     history = {
         "train_loss": [],

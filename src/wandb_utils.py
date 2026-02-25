@@ -2,8 +2,8 @@ import os
 
 import wandb
 
-WANDB_TEAM_NAME = "matthiascr-hpi-team"
-WANDB_PROJECT_NAME = "jaguar-re-identification"
+WANDB_TEAM_NAME = "juggling-jaguars"
+WANDB_PROJECT_NAME = "jaguar-reid-jugglingjaguars"
 
 def init_wandb(run_config, run_name, param_count):
     wandb_config = {
