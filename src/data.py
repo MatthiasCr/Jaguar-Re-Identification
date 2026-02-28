@@ -1,3 +1,4 @@
+import os
 from pathlib import Path
 
 import pandas as pd
@@ -117,10 +118,14 @@ def create_dataloaders(
     train_transform = build_transforms(input_size=input_size, train=True, mean=mean, std=std)
     val_transform = build_transforms(input_size=input_size, train=False, mean=mean, std=std)
 
+    generator = torch.Generator()
+    generator.manual_seed(int(os.getenv("PYTHONHASHSEED", "0")))
+
     train_loader = DataLoader(
         JaguarDataset(train_df, img_dir, train_transform),
         batch_size=batch_size,
         shuffle=True,
+        generator=generator,
         num_workers=num_workers,
         pin_memory=False,
     )
@@ -129,6 +134,7 @@ def create_dataloaders(
         JaguarDataset(val_df, img_dir, val_transform),
         batch_size=batch_size,
         shuffle=False,
+        generator=generator,
         num_workers=num_workers,
         pin_memory=False,
     )
@@ -148,10 +154,14 @@ def create_backbone_dataloaders(
 ):
     transform = build_transforms(input_size=input_size, train=False, mean=mean, std=std)
 
+    generator = torch.Generator()
+    generator.manual_seed(int(os.getenv("PYTHONHASHSEED", "0")))
+
     train_loader = DataLoader(
         JaguarDataset(train_df, img_dir, transform),
         batch_size=batch_size,
         shuffle=False,
+        generator=generator,
         num_workers=num_workers,
         pin_memory=False,
     )
@@ -160,6 +170,7 @@ def create_backbone_dataloaders(
         JaguarDataset(val_df, img_dir, transform),
         batch_size=batch_size,
         shuffle=False,
+        generator=generator,
         num_workers=num_workers,
         pin_memory=False,
     )
@@ -195,11 +206,16 @@ def create_embedding_dataloaders(
     batch_size,
     num_workers=0,
 ):
+    
+    generator = torch.Generator()
+    generator.manual_seed(int(os.getenv("PYTHONHASHSEED", "0")))
+
     train_loader = DataLoader(
         EmbeddingDataset(train_embeddings, train_labels),
         batch_size=batch_size,
         shuffle=True,
         num_workers=num_workers,
+        generator=generator,
         pin_memory=False,
     )
 
@@ -208,6 +224,7 @@ def create_embedding_dataloaders(
         batch_size=batch_size,
         shuffle=False,
         num_workers=num_workers,
+        generator=generator,
         pin_memory=False,
     )
 
