@@ -9,3 +9,4 @@ data/*
 */wandb/*
 .env
 .zip
+src/__pycache__/*
