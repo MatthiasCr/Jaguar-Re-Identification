@@ -8,6 +8,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import LabelEncoder
 from torch.utils.data import Dataset, DataLoader
 from torchvision import transforms
+import timm.data
 
 
 DEFAULT_MEAN = (0.481, 0.457, 0.408)
@@ -38,7 +39,7 @@ def train_val_split(df: pd.DataFrame, val_split: float, seed: int, stratify_col:
     )
 
 
-def build_transforms(input_size: int, train: bool, mean=DEFAULT_MEAN, std=DEFAULT_STD):
+def build_transforms_baseline(input_size: int, train: bool, mean=DEFAULT_MEAN, std=DEFAULT_STD):    
     if train:
         return transforms.Compose(
             [
@@ -47,7 +48,7 @@ def build_transforms(input_size: int, train: bool, mean=DEFAULT_MEAN, std=DEFAUL
                 transforms.RandomAffine(degrees=15, translate=(0.1, 0.1), scale=(0.9, 1.1)),
                 transforms.ColorJitter(brightness=0.2, contrast=0.2),
                 transforms.ToTensor(),
-                transforms.Normalize(mean, std),
+                transforms.Normalize(mean=mean, std=std),
                 transforms.RandomErasing(p=0.25),
             ]
         )
@@ -56,7 +57,40 @@ def build_transforms(input_size: int, train: bool, mean=DEFAULT_MEAN, std=DEFAUL
         [
             transforms.Resize((input_size, input_size)),
             transforms.ToTensor(),
-            transforms.Normalize(mean, std),
+            transforms.Normalize(mean=mean, std=std),
+        ]
+    )
+
+
+def build_transforms(model, input_size: int, train: bool, mean=DEFAULT_MEAN, std=DEFAULT_STD):
+    data_config = timm.data.resolve_model_data_config(model)
+    transform = timm.data.create_transform(**data_config, is_training=False)
+
+    normalize_transform = None
+    for t in transform.transforms:
+        if isinstance(t, transforms.Normalize):
+            normalize_transform = t
+            break
+
+    
+    if train:
+        return transforms.Compose(
+            [
+                transforms.Resize((input_size, input_size)),
+                transforms.RandomHorizontalFlip(),
+                transforms.RandomAffine(degrees=15, translate=(0.1, 0.1), scale=(0.9, 1.1)),
+                transforms.ColorJitter(brightness=0.2, contrast=0.2),
+                transforms.ToTensor(),
+                normalize_transform,
+                transforms.RandomErasing(p=0.25),
+            ]
+        )
+
+    return transforms.Compose(
+        [
+            transforms.Resize((input_size, input_size)),
+            transforms.ToTensor(),
+            normalize_transform,
         ]
     )
 
@@ -115,8 +149,8 @@ def create_dataloaders(
     mean=DEFAULT_MEAN,
     std=DEFAULT_STD,
 ):
-    train_transform = build_transforms(input_size=input_size, train=True, mean=mean, std=std)
-    val_transform = build_transforms(input_size=input_size, train=False, mean=mean, std=std)
+    train_transform = build_transforms_baseline(input_size=input_size, train=True, mean=mean, std=std)
+    val_transform = build_transforms_baseline(input_size=input_size, train=False, mean=mean, std=std)
 
     generator = torch.Generator()
     generator.manual_seed(int(os.getenv("PYTHONHASHSEED", "0")))
@@ -143,6 +177,7 @@ def create_dataloaders(
 
 
 def create_backbone_dataloaders(
+    model,
     train_df,
     val_df,
     img_dir,
@@ -152,7 +187,7 @@ def create_backbone_dataloaders(
     mean=DEFAULT_MEAN,
     std=DEFAULT_STD,
 ):
-    transform = build_transforms(input_size=input_size, train=False, mean=mean, std=std)
+    transform = build_transforms(model, input_size=input_size, train=False, mean=mean, std=std)
 
     generator = torch.Generator()
     generator.manual_seed(int(os.getenv("PYTHONHASHSEED", "0")))
@@ -179,6 +214,7 @@ def create_backbone_dataloaders(
 
 
 def create_test_loader(
+    model,
     test_df,
     img_dir,
     input_size,
@@ -187,7 +223,8 @@ def create_test_loader(
     mean=DEFAULT_MEAN,
     std=DEFAULT_STD,
 ):
-    test_transform = build_transforms(input_size=input_size, train=False, mean=mean, std=std)
+    test_transform = build_transforms(model, input_size=input_size, train=False, mean=mean, std=std)
+
     test_loader = DataLoader(
         JaguarDataset(test_df, img_dir, test_transform, is_test=True),
         batch_size=batch_size,
