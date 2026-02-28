@@ -34,3 +34,21 @@ def compute_similarity_for_pairs(pairs_df, embedding_lookup):
     similarities = np.array(similarities)
     similarities = np.clip(similarities, 0.0, 1.0)
     return similarities
+
+
+def extract_embeddings_with_names_backbone(backbone, head_model, loader, device):
+    backbone.eval()
+    head_model.eval()
+    embeddings = []
+    names = []
+
+    with torch.no_grad():
+        for images, batch_names in tqdm(loader, desc="Embedding", leave=False):
+            images = images.to(device)
+            features = backbone(images)
+            batch_emb = head_model.get_embeddings(features).cpu().numpy()
+            embeddings.append(batch_emb)
+            names.extend(batch_names)
+
+    embeddings = np.vstack(embeddings)
+    return names, embeddings

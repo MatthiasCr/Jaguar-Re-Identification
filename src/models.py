@@ -141,3 +141,40 @@ class ArcFaceModel(nn.Module):
         features = self.backbone(x)
         embeddings = self.embedding_net(features)
         return F.normalize(embeddings, p=2, dim=1)
+
+
+class ArcFaceHeadModel(nn.Module):
+    """Projection + ArcFace head for cached backbone embeddings."""
+
+    def __init__(
+        self,
+        input_dim,
+        num_classes,
+        embedding_dim=256,
+        hidden_dim=512,
+        margin=0.5,
+        scale=64.0,
+        dropout=0.3,
+    ):
+        super().__init__()
+        self.embedding_net = EmbeddingProjection(
+            input_dim=input_dim,
+            hidden_dim=hidden_dim,
+            output_dim=embedding_dim,
+            dropout=dropout,
+        )
+        self.arcface = ArcFaceLayer(
+            embedding_dim=embedding_dim,
+            num_classes=num_classes,
+            margin=margin,
+            scale=scale,
+        )
+
+    def forward(self, embeddings, labels):
+        projected = self.embedding_net(embeddings)
+        logits = self.arcface(projected, labels)
+        return logits, projected
+
+    def get_embeddings(self, embeddings):
+        projected = self.embedding_net(embeddings)
+        return F.normalize(projected, p=2, dim=1)

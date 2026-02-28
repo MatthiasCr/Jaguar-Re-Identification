@@ -92,6 +92,18 @@ class JaguarDataset(Dataset):
         return img, torch.tensor(row[self.label_col], dtype=torch.long)
 
 
+class EmbeddingDataset(Dataset):
+    def __init__(self, embeddings, labels):
+        self.embeddings = torch.FloatTensor(embeddings)
+        self.labels = torch.LongTensor(labels)
+
+    def __len__(self):
+        return len(self.labels)
+
+    def __getitem__(self, idx):
+        return self.embeddings[idx], self.labels[idx]
+
+
 def create_dataloaders(
     train_df,
     val_df,
@@ -124,6 +136,37 @@ def create_dataloaders(
     return train_loader, val_loader
 
 
+def create_backbone_dataloaders(
+    train_df,
+    val_df,
+    img_dir,
+    input_size,
+    batch_size,
+    num_workers=2,
+    mean=DEFAULT_MEAN,
+    std=DEFAULT_STD,
+):
+    transform = build_transforms(input_size=input_size, train=False, mean=mean, std=std)
+
+    train_loader = DataLoader(
+        JaguarDataset(train_df, img_dir, transform),
+        batch_size=batch_size,
+        shuffle=False,
+        num_workers=num_workers,
+        pin_memory=False,
+    )
+
+    val_loader = DataLoader(
+        JaguarDataset(val_df, img_dir, transform),
+        batch_size=batch_size,
+        shuffle=False,
+        num_workers=num_workers,
+        pin_memory=False,
+    )
+
+    return train_loader, val_loader
+
+
 def create_test_loader(
     test_df,
     img_dir,
@@ -142,3 +185,30 @@ def create_test_loader(
         pin_memory=False,
     )
     return test_loader
+
+
+def create_embedding_dataloaders(
+    train_embeddings,
+    train_labels,
+    val_embeddings,
+    val_labels,
+    batch_size,
+    num_workers=0,
+):
+    train_loader = DataLoader(
+        EmbeddingDataset(train_embeddings, train_labels),
+        batch_size=batch_size,
+        shuffle=True,
+        num_workers=num_workers,
+        pin_memory=False,
+    )
+
+    val_loader = DataLoader(
+        EmbeddingDataset(val_embeddings, val_labels),
+        batch_size=batch_size,
+        shuffle=False,
+        num_workers=num_workers,
+        pin_memory=False,
+    )
+
+    return train_loader, val_loader
