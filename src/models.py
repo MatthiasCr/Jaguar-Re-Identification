@@ -89,7 +89,10 @@ class ArcFaceLayer(nn.Module):
 
 
 def build_backbone(backbone_name: str, pretrained: bool = True):
-    return timm.create_model(backbone_name, pretrained=pretrained, num_classes=0)
+    return timm.create_model(backbone_name, pretrained=pretrained
+    # , features_only=True
+    , num_classes=0
+    )
 
 
 class ArcFaceModel(nn.Module):

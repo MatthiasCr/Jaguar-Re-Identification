@@ -331,8 +331,8 @@ def fit_embeddings(
     print("=" * 70)
 
     for epoch in range(config["num_epochs"]):
-        print()
-        print(f"Epoch {epoch+1}/{config['num_epochs']}")
+        # print()
+        # print(f"Epoch {epoch+1}/{config['num_epochs']}")
 
         train_loss, train_acc = train_epoch_embeddings(model, train_loader, criterion, optimizer, device)
         val_loss, val_acc = validate_epoch_embeddings(model, val_loader, criterion, device)
@@ -361,9 +361,9 @@ def fit_embeddings(
                 }
             )
 
-        print(f"  Train Loss: {train_loss:.4f} | Train Acc: {train_acc:.1f}%")
-        print(f"  Val Loss:   {val_loss:.4f} | Val Acc:   {val_acc:.1f}%")
-        print(f"  Val mAP:    {val_map:.4f} | LR: {current_lr:.2e}")
+        # print(f"  Train Loss: {train_loss:.4f} | Train Acc: {train_acc:.1f}%")
+        # print(f"  Val Loss:   {val_loss:.4f} | Val Acc:   {val_acc:.1f}%")
+        # print(f"  Val mAP:    {val_map:.4f} | LR: {current_lr:.2e}")
 
         if val_loss < best_val_loss:
             best_val_loss = val_loss
@@ -386,14 +386,14 @@ def fit_embeddings(
                 checkpoint_path,
             )
 
-            print("  [New best model saved]")
+            # print("  [New best model saved]")
         else:
             patience_counter += 1
-            print(f"  No improvement. Patience: {patience_counter}/{config['patience']}")
+            # print(f"  No improvement. Patience: {patience_counter}/{config['patience']}")
 
         if patience_counter >= config["patience"]:
-            print()
-            print(f"Early stopping triggered after {epoch+1} epochs")
+            # print()
+            # print(f"Early stopping triggered after {epoch+1} epochs")
             break
 
     print()

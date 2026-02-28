@@ -5,13 +5,14 @@ import wandb
 WANDB_TEAM_NAME = "juggling-jaguars"
 WANDB_PROJECT_NAME = "jaguar-reid-jugglingjaguars"
 
-def init_wandb(run_config, run_name, param_count):
+def init_wandb(run_config, run_name, param_count, param_count_backbone=None):
     wandb_config = {
         key: (str(value) if hasattr(value, "__fspath__") else value)
         for key, value in run_config.items()
     }
-    if param_count is not None:
-        wandb_config["model_param_count"] = param_count
+    wandb_config["model_param_count"] = param_count
+    if param_count_backbone is not None:
+        wandb_config["backbone_param_count"] = param_count_backbone
 
     api_key = os.getenv("WANDB_API_KEY")
     if api_key:
