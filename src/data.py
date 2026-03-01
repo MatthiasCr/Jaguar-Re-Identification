@@ -62,29 +62,16 @@ def build_transforms_baseline(input_size: int, train: bool, mean=DEFAULT_MEAN, s
     )
 
 
-def build_transforms(model, input_size: int, train: bool, mean=DEFAULT_MEAN, std=DEFAULT_STD):
+def build_transforms(model, input_size: int):
     data_config = timm.data.resolve_model_data_config(model)
     transform = timm.data.create_transform(**data_config, is_training=False)
 
+    # extract the normalization parameters from the backbone transform
     normalize_transform = None
     for t in transform.transforms:
         if isinstance(t, transforms.Normalize):
             normalize_transform = t
             break
-
-    
-    if train:
-        return transforms.Compose(
-            [
-                transforms.Resize((input_size, input_size)),
-                transforms.RandomHorizontalFlip(),
-                transforms.RandomAffine(degrees=15, translate=(0.1, 0.1), scale=(0.9, 1.1)),
-                transforms.ColorJitter(brightness=0.2, contrast=0.2),
-                transforms.ToTensor(),
-                normalize_transform,
-                transforms.RandomErasing(p=0.25),
-            ]
-        )
 
     return transforms.Compose(
         [
@@ -184,10 +171,8 @@ def create_backbone_dataloaders(
     input_size,
     batch_size,
     num_workers=2,
-    mean=DEFAULT_MEAN,
-    std=DEFAULT_STD,
 ):
-    transform = build_transforms(model, input_size=input_size, train=False, mean=mean, std=std)
+    transform = build_transforms(model, input_size=input_size)
 
     generator = torch.Generator()
     generator.manual_seed(int(os.getenv("PYTHONHASHSEED", "0")))
@@ -220,10 +205,8 @@ def create_test_loader(
     input_size,
     batch_size,
     num_workers=2,
-    mean=DEFAULT_MEAN,
-    std=DEFAULT_STD,
 ):
-    test_transform = build_transforms(model, input_size=input_size, train=False, mean=mean, std=std)
+    test_transform = build_transforms(model, input_size=input_size)
 
     test_loader = DataLoader(
         JaguarDataset(test_df, img_dir, test_transform, is_test=True),
