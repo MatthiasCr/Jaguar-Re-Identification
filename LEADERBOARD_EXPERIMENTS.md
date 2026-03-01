@@ -1,6 +1,8 @@
 ## Experiment 1 - Backbone Comparison
 
-[W&B Run Group](https://wandb.ai/juggling-jaguars/jaguar-reid-jugglingjaguars/groups/Experiment-1-Backbones)
+| [Notebook](notebooks/exp_backbones.ipynb) | 
+[W&B Run Group](https://wandb.ai/juggling-jaguars/jaguar-reid-jugglingjaguars/groups/Experiment-1-Backbones) | 
+Kaggle Submission: best model Eva-02, Score: 0.871 | 
 
 The backbone creates the base embeddings and is therefore one of the most important parts of the model. Different backbones can have different architectures, different input and output sizes, and different number of parameters, so the decision can have important implications on performance but also on efficiency. In this experiment we want to compare 5 different backbones to see which one results the best mAP. 
 
