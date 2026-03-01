@@ -312,6 +312,7 @@ def fit_embeddings(
     label_encoder=None,
     wandb_run=None,
     checkpoint_name="best_model.pth",
+    restore_best=True,
 ):
     history = {
         "train_loss": [],
@@ -326,6 +327,7 @@ def fit_embeddings(
     best_map = 0.0
     patience_counter = 0
     best_epoch = 0
+    best_state_dict = None
 
     print(f"Starting training for {config['num_epochs']} epochs...")
     print("=" * 70)
@@ -370,6 +372,7 @@ def fit_embeddings(
             best_map = val_map
             best_epoch = epoch + 1
             patience_counter = 0
+            best_state_dict = {k: v.detach().cpu().clone() for k, v in model.state_dict().items()}
 
             checkpoint_path = config["checkpoint_dir"] / checkpoint_name
             torch.save(
@@ -400,6 +403,9 @@ def fit_embeddings(
     print("=" * 70)
     print("Training complete!")
     print(f"Best epoch: {best_epoch} (Val Loss: {best_val_loss:.4f}, Val mAP: {best_map:.4f})")
+
+    if restore_best and best_state_dict is not None:
+        model.load_state_dict(best_state_dict)
 
     return {
         "history": history,
