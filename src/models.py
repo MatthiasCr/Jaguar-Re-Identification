@@ -285,3 +285,39 @@ class CEHeadModel(nn.Module):
     def get_embeddings(self, embeddings):
         projected = self.embedding_net(embeddings)
         return F.normalize(projected, p=2, dim=1)
+
+
+class FocalLoss(nn.Module):
+    """Multi-class focal loss on logits."""
+
+    def __init__(self, gamma=2.0, alpha=None, reduction="mean"):
+        super().__init__()
+        self.gamma = gamma
+        self.reduction = reduction
+
+        if alpha is None:
+            self.alpha = None
+        elif isinstance(alpha, (float, int)):
+            self.alpha = torch.tensor([float(alpha)])
+        else:
+            self.alpha = torch.as_tensor(alpha, dtype=torch.float)
+
+    def forward(self, logits, targets):
+        ce_loss = F.cross_entropy(logits, targets, reduction="none")
+        pt = torch.exp(-ce_loss)
+        focal_weight = (1.0 - pt) ** self.gamma
+
+        if self.alpha is not None:
+            alpha = self.alpha.to(logits.device)
+            if alpha.numel() == 1:
+                focal_weight = focal_weight * alpha
+            else:
+                focal_weight = focal_weight * alpha[targets]
+
+        loss = focal_weight * ce_loss
+
+        if self.reduction == "mean":
+            return loss.mean()
+        if self.reduction == "sum":
+            return loss.sum()
+        return loss
