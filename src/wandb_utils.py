@@ -1,4 +1,5 @@
 import os
+from pathlib import Path
 
 import wandb
 
@@ -31,3 +32,25 @@ def init_wandb(run_config, run_name, param_count, param_count_backbone=None):
 
 def log_image(name, fig):
     wandb.log({name: wandb.Image(fig)})
+
+
+def log_checkpoint_artifact(wandb_run, checkpoint_path, artifact_name, description="Model checkpoint"):
+    checkpoint_path = Path(checkpoint_path)
+    artifact = wandb.Artifact(
+        name=artifact_name,
+        type="model",
+        description=description,
+    )
+    artifact.add_file(str(checkpoint_path))
+    wandb_run.log_artifact(artifact)
+
+
+def log_submission_artifact(wandb_run, submission_path, artifact_name, description="Competition submission file"):
+    submission_path = Path(submission_path)
+    artifact = wandb.Artifact(
+        name=artifact_name,
+        type="submission",
+        description=description,
+    )
+    artifact.add_file(str(submission_path))
+    wandb_run.log_artifact(artifact)

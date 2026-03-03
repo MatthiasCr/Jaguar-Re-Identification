@@ -5,6 +5,12 @@ import torch.nn as nn
 import torch.nn.functional as F
 import timm
 
+def build_backbone(backbone_name: str, pretrained: bool = True):
+    return timm.create_model(backbone_name, pretrained=pretrained
+    # , features_only=True
+    , num_classes=0
+    )
+
 
 class EmbeddingProjection(nn.Module):
     """
@@ -88,11 +94,39 @@ class ArcFaceLayer(nn.Module):
         return output
 
 
-def build_backbone(backbone_name: str, pretrained: bool = True):
-    return timm.create_model(backbone_name, pretrained=pretrained
-    # , features_only=True
-    , num_classes=0
-    )
+class CosFaceLayer(nn.Module):
+    """CosFace (additive cosine margin) layer."""
+
+    def __init__(self, embedding_dim, num_classes, margin=0.35, scale=64.0):
+        super().__init__()
+        self.margin = margin
+        self.scale = scale
+        self.weight = nn.Parameter(torch.FloatTensor(num_classes, embedding_dim))
+        nn.init.xavier_uniform_(self.weight)
+
+    def forward(self, embeddings, labels):
+        embeddings = F.normalize(embeddings, p=2, dim=1)
+        weight_norm = F.normalize(self.weight, p=2, dim=1)
+        cosine = F.linear(embeddings, weight_norm).clamp(-1.0, 1.0)
+
+        one_hot = torch.zeros_like(cosine)
+        one_hot.scatter_(1, labels.view(-1, 1).long(), 1.0)
+
+        output = cosine - one_hot * self.margin
+        output = output * self.scale
+        return output
+
+
+class SoftmaxClassifierLayer(nn.Module):
+    """Plain linear classifier logits for cross-entropy."""
+
+    def __init__(self, embedding_dim, num_classes):
+        super().__init__()
+        self.classifier = nn.Linear(embedding_dim, num_classes)
+
+    def forward(self, embeddings, labels):
+        del labels
+        return self.classifier(embeddings)
 
 
 class ArcFaceModel(nn.Module):
@@ -176,6 +210,76 @@ class ArcFaceHeadModel(nn.Module):
     def forward(self, embeddings, labels):
         projected = self.embedding_net(embeddings)
         logits = self.arcface(projected, labels)
+        return logits, projected
+
+    def get_embeddings(self, embeddings):
+        projected = self.embedding_net(embeddings)
+        return F.normalize(projected, p=2, dim=1)
+
+
+class CosFaceHeadModel(nn.Module):
+    """Projection + CosFace head for cached backbone embeddings."""
+
+    def __init__(
+        self,
+        input_dim,
+        num_classes,
+        embedding_dim=256,
+        hidden_dim=512,
+        margin=0.35,
+        scale=64.0,
+        dropout=0.3,
+    ):
+        super().__init__()
+        self.embedding_net = EmbeddingProjection(
+            input_dim=input_dim,
+            hidden_dim=hidden_dim,
+            output_dim=embedding_dim,
+            dropout=dropout,
+        )
+        self.cosface = CosFaceLayer(
+            embedding_dim=embedding_dim,
+            num_classes=num_classes,
+            margin=margin,
+            scale=scale,
+        )
+
+    def forward(self, embeddings, labels):
+        projected = self.embedding_net(embeddings)
+        logits = self.cosface(projected, labels)
+        return logits, projected
+
+    def get_embeddings(self, embeddings):
+        projected = self.embedding_net(embeddings)
+        return F.normalize(projected, p=2, dim=1)
+
+
+class CEHeadModel(nn.Module):
+    """Projection + plain CE classifier head for cached backbone embeddings."""
+
+    def __init__(
+        self,
+        input_dim,
+        num_classes,
+        embedding_dim=256,
+        hidden_dim=512,
+        dropout=0.3,
+    ):
+        super().__init__()
+        self.embedding_net = EmbeddingProjection(
+            input_dim=input_dim,
+            hidden_dim=hidden_dim,
+            output_dim=embedding_dim,
+            dropout=dropout,
+        )
+        self.classifier = SoftmaxClassifierLayer(
+            embedding_dim=embedding_dim,
+            num_classes=num_classes,
+        )
+
+    def forward(self, embeddings, labels):
+        projected = self.embedding_net(embeddings)
+        logits = self.classifier(projected, labels)
         return logits, projected
 
     def get_embeddings(self, embeddings):
