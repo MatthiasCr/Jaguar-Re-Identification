@@ -143,7 +143,7 @@ class SphereFaceLayer(nn.Module):
         return output
 
 
-class SoftmaxClassifierLayer(nn.Module):
+class LinearClassifier(nn.Module):
     """Plain linear classifier logits for cross-entropy."""
 
     def __init__(self, embedding_dim, num_classes):
@@ -243,16 +243,19 @@ class ArcFaceHeadModel(nn.Module):
         return F.normalize(projected, p=2, dim=1)
 
 
-class CosFaceHeadModel(nn.Module):
-    """Projection + CosFace head for cached backbone embeddings."""
+class MetricLearningModel(nn.Module):
+    """Projection + arcface/cosface/sphereface head for cached backbone embeddings."""
 
     def __init__(
         self,
         input_dim,
         num_classes,
+        loss_name="arcface",
         embedding_dim=256,
         hidden_dim=512,
-        margin=0.35,
+        arcface_margin=0.5,
+        cosface_margin=0.35,
+        sphereface_margin=1.35,
         scale=64.0,
         dropout=0.3,
     ):
@@ -263,86 +266,18 @@ class CosFaceHeadModel(nn.Module):
             output_dim=embedding_dim,
             dropout=dropout,
         )
-        self.cosface = CosFaceLayer(
-            embedding_dim=embedding_dim,
-            num_classes=num_classes,
-            margin=margin,
-            scale=scale,
-        )
+        if loss_name == "arcface":
+            self.head = ArcFaceLayer(embedding_dim, num_classes, margin=arcface_margin,scale=scale)
+        elif loss_name == "cosface":
+            self.head = CosFaceLayer(embedding_dim, num_classes, margin=cosface_margin, scale=scale)
+        elif loss_name == "sphereface":
+            self.head = SphereFaceLayer(embedding_dim, num_classes, margin=sphereface_margin, scale=scale)
+        elif loss_name == "ce":
+            self.head = LinearClassifier(embedding_dim, num_classes)
 
     def forward(self, embeddings, labels):
         projected = self.embedding_net(embeddings)
-        logits = self.cosface(projected, labels)
-        return logits, projected
-
-    def get_embeddings(self, embeddings):
-        projected = self.embedding_net(embeddings)
-        return F.normalize(projected, p=2, dim=1)
-
-
-class SphereFaceHeadModel(nn.Module):
-    """Projection + SphereFace head for cached backbone embeddings."""
-
-    def __init__(
-        self,
-        input_dim,
-        num_classes,
-        embedding_dim=256,
-        hidden_dim=512,
-        margin=1.35,
-        scale=64.0,
-        dropout=0.3,
-    ):
-        super().__init__()
-        self.embedding_net = EmbeddingProjection(
-            input_dim=input_dim,
-            hidden_dim=hidden_dim,
-            output_dim=embedding_dim,
-            dropout=dropout,
-        )
-        self.sphereface = SphereFaceLayer(
-            embedding_dim=embedding_dim,
-            num_classes=num_classes,
-            margin=margin,
-            scale=scale,
-        )
-
-    def forward(self, embeddings, labels):
-        projected = self.embedding_net(embeddings)
-        logits = self.sphereface(projected, labels)
-        return logits, projected
-
-    def get_embeddings(self, embeddings):
-        projected = self.embedding_net(embeddings)
-        return F.normalize(projected, p=2, dim=1)
-
-
-class CEHeadModel(nn.Module):
-    """Projection + plain CE classifier head for cached backbone embeddings."""
-
-    def __init__(
-        self,
-        input_dim,
-        num_classes,
-        embedding_dim=256,
-        hidden_dim=512,
-        dropout=0.3,
-    ):
-        super().__init__()
-        self.embedding_net = EmbeddingProjection(
-            input_dim=input_dim,
-            hidden_dim=hidden_dim,
-            output_dim=embedding_dim,
-            dropout=dropout,
-        )
-        self.classifier = SoftmaxClassifierLayer(
-            embedding_dim=embedding_dim,
-            num_classes=num_classes,
-        )
-
-    def forward(self, embeddings, labels):
-        projected = self.embedding_net(embeddings)
-        logits = self.classifier(projected, labels)
+        logits = self.head(projected, labels)
         return logits, projected
 
     def get_embeddings(self, embeddings):
