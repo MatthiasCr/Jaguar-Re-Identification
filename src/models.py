@@ -129,6 +129,27 @@ class SoftmaxClassifierLayer(nn.Module):
         return self.classifier(embeddings)
 
 
+class SubCenterArcFace(nn.Module):
+    def __init__(self, in_features, out_features, s=30.0, m=0.5, k=1):
+        super().__init__()
+        self.s = s
+        self.m = m
+        self.k = k
+        self.weight = nn.Parameter(torch.FloatTensor(out_features * k, in_features))
+        nn.init.xavier_uniform_(self.weight)
+        self.out_features = out_features
+    def forward(self, input, label=None):
+        cosine = F.linear(F.normalize(input), F.normalize(self.weight))
+        cosine = cosine.view(-1, self.out_features, self.k)
+        cosine, _ = cosine.max(dim=2)
+        if label is None: return cosine
+        phi = cosine - self.m
+        one_hot = torch.zeros_like(cosine)
+        one_hot.scatter_(1, label.view(-1, 1), 1)
+        output = (one_hot * phi) + ((1.0 - one_hot) * cosine)
+        return output * self.s
+
+
 class ArcFaceModel(nn.Module):
     """Backbone + projection + ArcFace."""
 
@@ -285,6 +306,44 @@ class CEHeadModel(nn.Module):
     def get_embeddings(self, embeddings):
         projected = self.embedding_net(embeddings)
         return F.normalize(projected, p=2, dim=1)
+
+
+class SubCenterArcFaceHeadModel(nn.Module):
+    """Projection + SubCenter ArcFace head for cached backbone embeddings."""
+
+    def __init__(
+        self,
+        input_dim,
+        num_classes,
+        embedding_dim=256,
+        hidden_dim=512,
+        margin=0.5,
+        scale=64.0,
+        dropout=0.3,
+    ):
+        super().__init__()
+        self.embedding_net = EmbeddingProjection(
+            input_dim=input_dim,
+            hidden_dim=hidden_dim,
+            output_dim=embedding_dim,
+            dropout=dropout,
+        )
+        self.arcface = SubCenterArcFace(
+            embedding_dim=embedding_dim,
+            num_classes=num_classes,
+            margin=margin,
+            scale=scale,
+        )
+
+    def forward(self, embeddings, labels):
+        projected = self.embedding_net(embeddings)
+        logits = self.arcface(projected, labels)
+        return logits, projected
+
+    def get_embeddings(self, embeddings):
+        projected = self.embedding_net(embeddings)
+        return F.normalize(projected, p=2, dim=1)
+
 
 
 class FocalLoss(nn.Module):
