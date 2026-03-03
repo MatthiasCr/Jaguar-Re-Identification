@@ -24,17 +24,16 @@ $ salloc --partition=cpu-interactive --account=sci-demelo-computer-vision --cpus
 
 ## Experiments
 
-### EDA
-
-- Interpretability to visualize which regions the model uses
-- Comparison of Optimizers and Schedulers
-
-
-### Leaderboard
-
-- Backbone Comparison (5 Backbones = 2 credits)
-- Loss Function Comparison (2 Losses = 1 credit, 4 Losses = 2 credits)
-- k-reciprocal re-ranking
-- Extensive Hyperparameter Sweep
-- Same Config on 10 different Seeds
-- Appy same Model to both Competition Rounds (with/without background)
+||experiments|type|||
+|--|--|--|--|--|
+|01|Backbone Comparison|Leaderboard|[notebook](notebooks/exp_backbones.ipynb)|[W&B Run Group](https://wandb.ai/juggling-jaguars/jaguar-reid-jugglingjaguars/groups/Experiment-1-Backbones)|
+|02|Loss Function Comparison|Leaderboard|[notebook](notebooks/exp_loss_functions.ipynb)|[W&B Run Group](https://wandb.ai/juggling-jaguars/jaguar-reid-jugglingjaguars/groups/Experiment-2-LossFunctions)|
+|03|Handling Data Imbalance|Leaderboard|||
+|04|K-Reciprocal Re-Ranking|Leaderboard|||
+|05|Optimizer / Scheduler Comparison|EDA|||
+|06|Training Stability across different random seeds|EDA|||
+|07|Background vs. no Background|EDA|||
+|08|Interpretability Visualization|EDA|||
+|09|Hyperparameter Sweep|Leaderboard|||
+|10||||||
+||||||

@@ -72,6 +72,8 @@ Because each method applies margin in a different way (additive angular, additiv
 
 ![](screenshots/e2_wandb_graphs.png)
 
-CrossEntropy achives the highest validation accuracy but clearly underperforms on mAP. This is expected because CE optimizes class prediction rather than embedding alignment which is needed for good similarities. From the learning curves we can observe that CE shows much steeper early loss and accuracy improvements and converges earlier than the other losses. This is consistent with CE being an easier optimization objective, while ArcFace/CosFace spend more time on enforcing stricter embedding clustering/separation.
+CrossEntropy achives the highest validation accuracy but clearly underperforms on mAP. This is expected because CE optimizes class prediction rather than embedding alignment which is needed for good similarities. The strong class imbalance likely amplifies this effect: accuracy and CE are dominated by frequent identities, while our mAP is identity-balanced and gives equal importance to rare identities. 
+
+From the learning curves we can also observe that CE shows much steeper early loss and accuracy improvements and converges earlier than the other losses. This is consistent with CE being an easier optimization objective, while ArcFace/CosFace spend more time on enforcing stricter embedding clustering/separation.
 
 ArcFace and CosFace perform very similarly and both achieve substantially better mAP than CrossEntropy. This shows that explicit margin constraints improve embedding separability for retrieval. SphereFace also improves over CrossEntropy but remains below ArcFace/CosFace. For the next experiments we will therefore continue with ArcFace.
