@@ -1,6 +1,6 @@
 ## Experiment 1 - Backbone Comparison
 
-| [Notebook](notebooks/exp_backbones.ipynb) | 
+| [Notebook](notebooks/01_backbones.ipynb) | 
 [W&B Run Group](https://wandb.ai/juggling-jaguars/jaguar-reid-jugglingjaguars/groups/Experiment-1-Backbones) | 
 Kaggle Submission: best model Eva-02, Score: 0.871 | 
 
@@ -41,7 +41,7 @@ EfficientNetB3 also performs surprisingly well for its tiny size in comparison a
 
 ## Experiment 2 - Loss Function Comparison
 
-| [Notebook](notebooks/exp_loss_functions.ipynb) | 
+| [Notebook](notebooks/02_loss_functions.ipynb) | 
 [W&B Run Group](https://wandb.ai/juggling-jaguars/jaguar-reid-jugglingjaguars/groups/Experiment-2-LossFunctions) | 
 no improvment so no new kaggle sumbission | 
 
