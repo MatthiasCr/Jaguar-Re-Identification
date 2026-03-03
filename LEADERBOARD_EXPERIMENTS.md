@@ -37,3 +37,41 @@ In the table below we report some essential metrics of the runs. More metrics su
 
 DINOv3 gives the strongest validation mAP in this setup, with EVA-02 close behind. On the test set in Kaggle, EVA-02 scored an even better public score of 0.871, while DINOv3 got only 0.841. We conclude that large ViT backbones are currently the best choice for this task. 
 EfficientNetB3 also performs surprisingly well for its tiny size in comparison and even outperforms ResNet50 and the much larger MegaDescriptor. That makes EfficientNetB3 a very space and compute efficient option. However, we only focus on achieving the best performance, so for leaderboard submissions we will prioritize DINOv3/EVA-02.
+
+
+## Experiment 2 - Loss Function Comparison
+
+| [Notebook](notebooks/exp_loss_functions.ipynb) | 
+[W&B Run Group](https://wandb.ai/juggling-jaguars/jaguar-reid-jugglingjaguars/groups/Experiment-2-LossFunctions) | 
+no improvment so no new kaggle sumbission | 
+
+In Experiment 1 we fixed the loss to the metric learning loss ArcFace. Here we want to understand ArcFace and metric learning in general better by comparing it to plain CrossEntropy and the very similar alternatives SphereFace and CosFace. Compared to plain classification which only optimizes correct class assignment, metric learning explicitly shapes the embedding space by pulling samples of the same identity closer and pushing different identities farther apart. The goal of this experiment is to answer whether margin-based metric learning improves mAP performance and which margin variant works best in our setup.
+
+### Setup
+
+We use the best performing backbone from experiment 1, which is EVA-02. All other settings are fixed and identical to experiment 1 (same split, same optimizer/scheduler, same training budget and patience). We only change the loss/head formulation.
+
+The compared losses are:
+- **CrossEntropy** - standard for classification tasks and therefore and important baseline. Useful to quantify how much margin-based metric learning really helps
+- **SphereFace** - first major angular-margin softmax formulation (2017)
+- **CosFace** - additive cosine margin
+- **ArcFace** - additive angular margin and common modern default for re-id tasks.
+
+Because each method applies margin in a different way (additive angular, additive cosine, multiplicative angular) the margin values are not comparable (i.e. we can not use the same margin m for each loss). Therefore we use estalished defaults for each method for a fair comparison:  **ArcFace m=0.5**, **CosFace m=0.35**, and **SphereFace m=1.35**.
+
+**Research questions:** Do margin-based metric learning losses improve mAP over plain CrossEntropy? Which method performs best for this dataset?
+
+### Results
+
+|loss |margin type|margin|epochs (best) |best val acc|best val mAP|
+|--|--|--|--|--|--|
+|CrossEntropy|-|-|66 (56)|0.955|0.835|
+|SphereFace|multiplicative angular|1.35|84 (74)|0.918|0.841|
+|CosFace|additive cosine|0.35|85 (75)|0.913|0.858|
+|ArcFace|additive angular|0.5|85 (75)|0.902|0.860|
+
+![](screenshots/e2_wandb_graphs.png)
+
+CrossEntropy achives the highest validation accuracy but clearly underperforms on mAP. This is expected because CE optimizes class prediction rather than embedding alignment which is needed for good similarities. From the learning curves we can observe that CE shows much steeper early loss and accuracy improvements and converges earlier than the other losses. This is consistent with CE being an easier optimization objective, while ArcFace/CosFace spend more time on enforcing stricter embedding clustering/separation.
+
+ArcFace and CosFace perform very similarly and both achieve substantially better mAP than CrossEntropy. This shows that explicit margin constraints improve embedding separability for retrieval. SphereFace also improves over CrossEntropy but remains below ArcFace/CosFace. For the next experiments we will therefore continue with ArcFace.
