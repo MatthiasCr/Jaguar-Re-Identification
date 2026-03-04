@@ -6,7 +6,7 @@ import torch
 from PIL import Image
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import LabelEncoder
-from torch.utils.data import Dataset, DataLoader
+from torch.utils.data import Dataset, DataLoader, WeightedRandomSampler
 from torchvision import transforms
 import timm.data
 
@@ -135,6 +135,8 @@ def create_dataloaders(
     num_workers=2,
     mean=DEFAULT_MEAN,
     std=DEFAULT_STD,
+    balanced_sampling: bool = False,
+    label_col: str = "label_encoded",
 ):
     train_transform = build_transforms_baseline(input_size=input_size, train=True, mean=mean, std=std)
     val_transform = build_transforms_baseline(input_size=input_size, train=False, mean=mean, std=std)
@@ -142,14 +144,34 @@ def create_dataloaders(
     generator = torch.Generator()
     generator.manual_seed(int(os.getenv("PYTHONHASHSEED", "0")))
 
-    train_loader = DataLoader(
-        JaguarDataset(train_df, img_dir, train_transform),
-        batch_size=batch_size,
-        shuffle=True,
-        generator=generator,
-        num_workers=num_workers,
-        pin_memory=False,
-    )
+    train_dataset = JaguarDataset(train_df, img_dir, train_transform, label_col=label_col)
+
+    if balanced_sampling:
+        class_counts = train_df[label_col].value_counts().sort_index()
+        class_weights = 1.0 / class_counts
+        sample_weights = train_df[label_col].map(class_weights).to_numpy(dtype="float64")
+        train_sampler = WeightedRandomSampler(
+            weights=sample_weights,
+            num_samples=len(sample_weights),
+            replacement=True,
+            generator=generator,
+        )
+        train_loader = DataLoader(
+            train_dataset,
+            batch_size=batch_size,
+            sampler=train_sampler,
+            num_workers=num_workers,
+            pin_memory=False,
+        )
+    else:
+        train_loader = DataLoader(
+            train_dataset,
+            batch_size=batch_size,
+            shuffle=True,
+            generator=generator,
+            num_workers=num_workers,
+            pin_memory=False,
+        )
 
     val_loader = DataLoader(
         JaguarDataset(val_df, img_dir, val_transform),
@@ -225,19 +247,41 @@ def create_embedding_dataloaders(
     val_labels,
     batch_size,
     num_workers=0,
+    balanced_sampling: bool = False,
 ):
     
     generator = torch.Generator()
     generator.manual_seed(int(os.getenv("PYTHONHASHSEED", "0")))
 
-    train_loader = DataLoader(
-        EmbeddingDataset(train_embeddings, train_labels),
-        batch_size=batch_size,
-        shuffle=True,
-        num_workers=num_workers,
-        generator=generator,
-        pin_memory=False,
-    )
+    train_dataset = EmbeddingDataset(train_embeddings, train_labels)
+    train_labels_tensor = train_dataset.labels
+
+    if balanced_sampling:
+        class_counts = torch.bincount(train_labels_tensor).float()
+        class_weights = 1.0 / class_counts.clamp_min(1.0)
+        sample_weights = class_weights[train_labels_tensor].double()
+        train_sampler = WeightedRandomSampler(
+            weights=sample_weights,
+            num_samples=len(train_dataset),
+            replacement=True,
+            generator=generator,
+        )
+        train_loader = DataLoader(
+            train_dataset,
+            batch_size=batch_size,
+            sampler=train_sampler,
+            num_workers=num_workers,
+            pin_memory=False,
+        )
+    else:
+        train_loader = DataLoader(
+            train_dataset,
+            batch_size=batch_size,
+            shuffle=True,
+            num_workers=num_workers,
+            generator=generator,
+            pin_memory=False,
+        )
 
     val_loader = DataLoader(
         EmbeddingDataset(val_embeddings, val_labels),
