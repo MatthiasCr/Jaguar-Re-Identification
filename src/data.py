@@ -258,7 +258,11 @@ def create_embedding_dataloaders(
 
     if balanced_sampling:
         class_counts = torch.bincount(train_labels_tensor).float()
+
         class_weights = 1.0 / class_counts.clamp_min(1.0)
+        # class_weights = 1.0 / torch.sqrt(class_counts.clamp_min(1.0))
+
+
         sample_weights = class_weights[train_labels_tensor].double()
         train_sampler = WeightedRandomSampler(
             weights=sample_weights,
