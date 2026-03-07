@@ -70,7 +70,7 @@ Because each method applies margin in a different way (additive angular, additiv
 |CosFace|additive cosine|0.35|85 (75)|0.913|0.858|
 |ArcFace|additive angular|0.5|85 (75)|0.902|0.860|
 
-![](screenshots/e2_wandb_graphs.png)
+![](images/e2_wandb_graphs.png)
 
 CrossEntropy achives the highest validation accuracy but clearly underperforms on mAP. This is expected because CE optimizes class prediction rather than embedding alignment which is needed for good similarities. The strong class imbalance likely amplifies this effect: accuracy and CE are dominated by frequent identities, while our mAP is identity-balanced and gives equal importance to rare identities. 
 

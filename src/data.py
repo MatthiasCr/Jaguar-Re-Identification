@@ -135,7 +135,7 @@ def create_dataloaders(
     num_workers=2,
     mean=DEFAULT_MEAN,
     std=DEFAULT_STD,
-    balanced_sampling: bool = False,
+    weighted_sampling: bool = False,
     label_col: str = "label_encoded",
 ):
     train_transform = build_transforms_baseline(input_size=input_size, train=True, mean=mean, std=std)
@@ -146,7 +146,7 @@ def create_dataloaders(
 
     train_dataset = JaguarDataset(train_df, img_dir, train_transform, label_col=label_col)
 
-    if balanced_sampling:
+    if weighted_sampling:
         class_counts = train_df[label_col].value_counts().sort_index()
         class_weights = 1.0 / class_counts
         sample_weights = train_df[label_col].map(class_weights).to_numpy(dtype="float64")
@@ -247,7 +247,7 @@ def create_embedding_dataloaders(
     val_labels,
     batch_size,
     num_workers=0,
-    balanced_sampling: bool = False,
+    weighted_sampling: bool = False,
 ):
     
     generator = torch.Generator()
@@ -256,7 +256,7 @@ def create_embedding_dataloaders(
     train_dataset = EmbeddingDataset(train_embeddings, train_labels)
     train_labels_tensor = train_dataset.labels
 
-    if balanced_sampling:
+    if weighted_sampling:
         class_counts = torch.bincount(train_labels_tensor).float()
 
         # class_weights = 1.0 / class_counts.clamp_min(1.0)
