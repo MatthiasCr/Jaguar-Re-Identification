@@ -106,6 +106,11 @@ def compute_map_from_embeddings(embeddings, labels):
     sim_matrix = cosine_similarity(embeddings)
     np.fill_diagonal(sim_matrix, -1)
 
+    stats = compute_ap_details_from_similarity(sim_matrix, labels)
+    return stats["map"]
+
+
+def compute_ap_details_from_similarity(sim_matrix, labels):
     query_aps = {}
     labels = np.asarray(labels)
 
@@ -126,14 +131,27 @@ def compute_map_from_embeddings(embeddings, labels):
         cumsum = np.cumsum(sorted_matches)
         precision_at_k = cumsum / np.arange(1, len(sorted_matches) + 1)
         ap = np.sum(precision_at_k * sorted_matches) / n_positives
-        query_aps[query_idx] = (query_label, ap)
+        query_aps[query_idx] = (query_label, float(ap))
 
     identity_aps = {}
     for _, (label, ap) in query_aps.items():
-        identity_aps.setdefault(label, []).append(ap)
+        identity_aps.setdefault(int(label), []).append(float(ap))
 
-    identity_mean_aps = [np.mean(aps) for aps in identity_aps.values()]
-    return float(np.mean(identity_mean_aps)) if identity_mean_aps else 0.0
+    identity_mean_ap = {label: float(np.mean(aps)) for label, aps in identity_aps.items()}
+    map_score = float(np.mean(list(identity_mean_ap.values()))) if identity_mean_ap else 0.0
+
+    return {
+        "query_aps": query_aps,
+        "identity_aps": identity_aps,
+        "identity_mean_ap": identity_mean_ap,
+        "map": map_score,
+    }
+
+
+def compute_ap_details_from_embeddings(embeddings, labels):
+    sim_matrix = cosine_similarity(embeddings)
+    np.fill_diagonal(sim_matrix, -1)
+    return compute_ap_details_from_similarity(sim_matrix, labels)
 
 
 def train_epoch_embeddings(model, loader, criterion, optimizer, device):
