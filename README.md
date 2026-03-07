@@ -24,6 +24,8 @@ $ salloc --partition=cpu-interactive --account=sci-demelo-computer-vision --cpus
 
 ## Experiments
 
+All experiments were run on the HPI SCI cluster using an NVIDIA A100 40GB GPU.
+
 ||Experiment|Type||||
 |--|:--|:--|--|--|--|
 |01|Backbone Comparison|Leaderboard|[Documentation](LEADERBOARD_EXPERIMENTS.md#experiment-1---backbone-comparison)|[Notebook](notebooks/01_backbones.ipynb)|[W&B Run Group](https://wandb.ai/juggling-jaguars/jaguar-reid-jugglingjaguars/groups/Experiment-1-Backbones)|
