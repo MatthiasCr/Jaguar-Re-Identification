@@ -26,10 +26,10 @@ If we look at the overall identity-balanced mAP for the validation data we only 
 
 |variant|num runs|val mAP mean|val mAP std|
 |--|--|--:|--:|
-|random sampler|5|0.8611|0.0076|
-|weighted sampler|5|0.8599|0.0071|
+|weighted sampler|5|0.8611|0.0076|
+|random sampler|5|0.8599|0.0071|
 
-Now we look at the individual identities. The following table shows the top movers: Three identites which AP increased the most and the three identities where it deceased the most. All shown APs are averages of the results across the five random seeds.
+Now we look at the individual identities. The following table shows the top movers: Three identites which AP increased the most and the three identities where it decreased the most. All shown APs are averages of the results across the five random seeds.
 
 |identity|train samples|AP baseline|AP weighted sampler|difference|
 |--|--|--|--|--|
@@ -45,8 +45,8 @@ In the following figure we visualize the AP differences per identity sorted by c
 
 ![](images/e3_result_fig_ap_delta_with_sample_count.png)
 
-Especially Oxum and Madalena benefit from the weighted sampling while Bororo decreases the most. We have inspected the images of Oxum and Bororo: Both have only little data but Oxum's images are almost all of very high quality. Bororo on the other hand, while also having *some* high quality images, is more noisy: In many images the Jaguar is mostly covered by vegetation and is hardly visible. We therefore conclude that the benefit of weighted sampling also depends on the quality of the data. If many samples are of low quality, oversampling them can even even worsen performance. 
+Especially Oxum and Madalena benefit from the weighted sampling while Bororo decreases the most. We have inspected the images of Oxum and Bororo: Both have only little data but Oxum's images are almost all of very high quality. Bororo on the other hand, while also having *some* high quality images, is more noisy: In many images the Jaguar is mostly covered by vegetation and is hardly visible. We therefore conclude that the benefit of weighted sampling depends on the quality of the data. If many samples are of low quality, oversampling them can also worsen performance. 
 
 ### Conclusion
 
-Weighted sampling does improve average precision for some identites, but can have the opposite effect if the data is low quality. That makes the overall mAP improvement in our dataset extremely small (+ 0.001). For better results it would be important to focus on data quality.
+Weighted sampling does improve average precision for some identites, but can have the opposite effect if the data is low quality. This makes the overall mAP improvement in our dataset extremely small (+ 0.001). For better results it would be important to focus on data quality.
