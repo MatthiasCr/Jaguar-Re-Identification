@@ -52,7 +52,7 @@ In Experiment 1 we fixed the loss to the metric learning loss ArcFace. Here we w
 We use the best performing backbone from experiment 1, which is EVA-02. All other settings are fixed and identical to experiment 1 (same split, same optimizer/scheduler, same training budget and patience). We only change the loss/head formulation.
 
 The compared losses are:
-- **CrossEntropy** - standard for classification tasks and therefore and important baseline. Useful to quantify how much margin-based metric learning really helps
+- **CrossEntropy** - standard for classification tasks and therefore an important baseline. Useful to quantify how much margin-based metric learning really helps
 - **SphereFace** - first major angular-margin softmax formulation (2017)
 - **CosFace** - additive cosine margin
 - **ArcFace** - additive angular margin and common modern default for re-id tasks.
