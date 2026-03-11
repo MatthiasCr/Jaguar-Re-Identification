@@ -2,6 +2,62 @@ import numpy as np
 import torch
 from sklearn.metrics.pairwise import cosine_similarity
 from tqdm.notebook import tqdm
+from src.reranking import rerank_embeddings
+
+
+def build_optimizer(model, config):
+    head_lr = config.get("head_learning_rate", config.get("learning_rate", 1e-4))
+    backbone_lr = config.get("backbone_learning_rate", head_lr * 0.1)
+    weight_decay = config.get("weight_decay", 1e-4)
+
+    if hasattr(model, "backbone"):
+        backbone_params = [p for p in model.backbone.parameters() if p.requires_grad]
+        head_params = [
+            p
+            for name, p in model.named_parameters()
+            if p.requires_grad and not name.startswith("backbone.")
+        ]
+
+        param_groups = []
+        if backbone_params:
+            param_groups.append({"params": backbone_params, "lr": backbone_lr})
+        if head_params:
+            param_groups.append({"params": head_params, "lr": head_lr})
+
+        if not param_groups:
+            raise ValueError("No trainable parameters found for optimizer.")
+
+        return torch.optim.AdamW(param_groups, weight_decay=weight_decay)
+
+    params = [p for p in model.parameters() if p.requires_grad]
+    if not params:
+        raise ValueError("No trainable parameters found for optimizer.")
+    return torch.optim.AdamW(params, lr=head_lr, weight_decay=weight_decay)
+
+
+def build_eval_score_matrix(embeddings, use_rerank=False, k1=20, k2=6, lambda_value=0.3):
+    sim_matrix = cosine_similarity(embeddings)
+    if not use_rerank:
+        return sim_matrix
+
+    final_dist = rerank_embeddings(
+        embeddings,
+        gallery_embeddings=embeddings,
+        k1=k1,
+        k2=k2,
+        lambda_value=lambda_value,
+    )
+    return -final_dist
+
+
+def get_rerank_config(config):
+    rerank_config = config.get("rerank", {})
+    return {
+        "enabled": rerank_config.get("enabled", rerank_config.get("use_rerank", False)),
+        "k1": rerank_config.get("k1", 20),
+        "k2": rerank_config.get("k2", 6),
+        "lambda_value": rerank_config.get("lambda_value", 0.3),
+    }
 
 
 def train_epoch(model, loader, criterion, optimizer, device):
@@ -92,21 +148,41 @@ def extract_head_embeddings(model, loader, device):
     return embeddings, labels
 
 
-def compute_validation_map(model, loader, device):
+def compute_validation_map(model, loader, device, use_rerank=False, k1=20, k2=6, lambda_value=0.3):
     embeddings, labels = extract_embeddings(model, loader, device)
-    return compute_map_from_embeddings(embeddings, labels)
+    return compute_map_from_embeddings(
+        embeddings,
+        labels,
+        use_rerank=use_rerank,
+        k1=k1,
+        k2=k2,
+        lambda_value=lambda_value,
+    )
 
 
-def compute_validation_map_from_embeddings(model, loader, device):
+def compute_validation_map_from_embeddings(model, loader, device, use_rerank=False, k1=20, k2=6, lambda_value=0.3):
     embeddings, labels = extract_head_embeddings(model, loader, device)
-    return compute_map_from_embeddings(embeddings, labels)
+    return compute_map_from_embeddings(
+        embeddings,
+        labels,
+        use_rerank=use_rerank,
+        k1=k1,
+        k2=k2,
+        lambda_value=lambda_value,
+    )
 
 
-def compute_map_from_embeddings(embeddings, labels):
-    sim_matrix = cosine_similarity(embeddings)
-    np.fill_diagonal(sim_matrix, -1)
+def compute_map_from_embeddings(embeddings, labels, use_rerank=False, k1=20, k2=6, lambda_value=0.3):
+    score_matrix = build_eval_score_matrix(
+        embeddings,
+        use_rerank=use_rerank,
+        k1=k1,
+        k2=k2,
+        lambda_value=lambda_value,
+    )
+    np.fill_diagonal(score_matrix, -np.inf)
 
-    stats = compute_ap_details_from_similarity(sim_matrix, labels)
+    stats = compute_ap_details_from_similarity(score_matrix, labels)
     return stats["map"]
 
 
@@ -148,10 +224,16 @@ def compute_ap_details_from_similarity(sim_matrix, labels):
     }
 
 
-def compute_ap_details_from_embeddings(embeddings, labels):
-    sim_matrix = cosine_similarity(embeddings)
-    np.fill_diagonal(sim_matrix, -1)
-    return compute_ap_details_from_similarity(sim_matrix, labels)
+def compute_ap_details_from_embeddings(embeddings, labels, use_rerank=False, k1=20, k2=6, lambda_value=0.3):
+    score_matrix = build_eval_score_matrix(
+        embeddings,
+        use_rerank=use_rerank,
+        k1=k1,
+        k2=k2,
+        lambda_value=lambda_value,
+    )
+    np.fill_diagonal(score_matrix, -np.inf)
+    return compute_ap_details_from_similarity(score_matrix, labels)
 
 
 def train_epoch_embeddings(model, loader, criterion, optimizer, device):
@@ -227,13 +309,16 @@ def fit(
         "val_loss": [],
         "val_acc": [],
         "val_map": [],
+        "val_map_rerank": [],
         "lr": [],
     }
 
     best_val_loss = float("inf")
     best_map = 0.0
+    best_map_rerank = None
     patience_counter = 0
     best_epoch = 0
+    rerank_config = get_rerank_config(config)
 
     print(f"Starting training for {config['num_epochs']} epochs...")
     print("=" * 70)
@@ -245,6 +330,17 @@ def fit(
         train_loss, train_acc = train_epoch(model, train_loader, criterion, optimizer, device)
         val_loss, val_acc = validate_epoch(model, val_loader, criterion, device)
         val_map = compute_validation_map(model, val_loader, device)
+        val_map_rerank = None
+        if rerank_config["enabled"]:
+            val_map_rerank = compute_validation_map(
+                model,
+                val_loader,
+                device,
+                use_rerank=True,
+                k1=rerank_config["k1"],
+                k2=rerank_config["k2"],
+                lambda_value=rerank_config["lambda_value"],
+            )
 
         scheduler.step(val_loss)
         current_lr = optimizer.param_groups[0]["lr"]
@@ -254,28 +350,33 @@ def fit(
         history["val_loss"].append(val_loss)
         history["val_acc"].append(val_acc)
         history["val_map"].append(val_map)
+        history["val_map_rerank"].append(val_map_rerank)
         history["lr"].append(current_lr)
 
         if wandb_run is not None:
-            wandb_run.log(
-                {
-                    "epoch": epoch + 1,
-                    "train_loss": train_loss,
-                    "train_acc": train_acc,
-                    "val_loss": val_loss,
-                    "val_acc": val_acc,
-                    "val_map": val_map,
-                    "learning_rate": current_lr,
-                }
-            )
+            log_payload = {
+                "epoch": epoch + 1,
+                "train_loss": train_loss,
+                "train_acc": train_acc,
+                "val_loss": val_loss,
+                "val_acc": val_acc,
+                "val_map": val_map,
+                "learning_rate": current_lr,
+            }
+            if val_map_rerank is not None:
+                log_payload["val_map_rerank"] = val_map_rerank
+            wandb_run.log(log_payload)
 
         print(f"  Train Loss: {train_loss:.4f} | Train Acc: {train_acc:.1f}%")
         print(f"  Val Loss:   {val_loss:.4f} | Val Acc:   {val_acc:.1f}%")
         print(f"  Val mAP:    {val_map:.4f} | LR: {current_lr:.2e}")
+        if val_map_rerank is not None:
+            print(f"  Val mAP RR: {val_map_rerank:.4f} | k1={rerank_config['k1']} k2={rerank_config['k2']} lambda={rerank_config['lambda_value']}")
 
         if val_loss < best_val_loss:
             best_val_loss = val_loss
             best_map = val_map
+            best_map_rerank = val_map_rerank
             best_epoch = epoch + 1
             patience_counter = 0
 
@@ -287,6 +388,7 @@ def fit(
                     "optimizer_state_dict": optimizer.state_dict(),
                     "val_loss": val_loss,
                     "val_map": val_map,
+                    "val_map_rerank": val_map_rerank,
                     "config": {k: str(v) if hasattr(v, "__fspath__") else v for k, v in config.items()},
                     "label_encoder_classes": label_encoder.classes_.tolist() if label_encoder else None,
                     "num_classes": len(label_encoder.classes_) if label_encoder else None,
@@ -313,6 +415,7 @@ def fit(
         "history": history,
         "best_val_loss": best_val_loss,
         "best_map": best_map,
+        "best_map_rerank": best_map_rerank,
         "best_epoch": best_epoch,
         "epochs_ran": len(history["train_loss"]),
     }
@@ -338,14 +441,17 @@ def fit_embeddings(
         "val_loss": [],
         "val_acc": [],
         "val_map": [],
+        "val_map_rerank": [],
         "lr": [],
     }
 
     best_val_loss = float("inf")
     best_map = 0.0
+    best_map_rerank = None
     patience_counter = 0
     best_epoch = 0
     best_state_dict = None
+    rerank_config = get_rerank_config(config)
 
     print(f"Starting training for {config['num_epochs']} epochs...")
     print("=" * 70)
@@ -357,6 +463,17 @@ def fit_embeddings(
         train_loss, train_acc = train_epoch_embeddings(model, train_loader, criterion, optimizer, device)
         val_loss, val_acc = validate_epoch_embeddings(model, val_loader, criterion, device)
         val_map = compute_validation_map_from_embeddings(model, val_loader, device)
+        val_map_rerank = None
+        if rerank_config["enabled"]:
+            val_map_rerank = compute_validation_map_from_embeddings(
+                model,
+                val_loader,
+                device,
+                use_rerank=True,
+                k1=rerank_config["k1"],
+                k2=rerank_config["k2"],
+                lambda_value=rerank_config["lambda_value"],
+            )
 
         scheduler.step(val_loss)
         current_lr = optimizer.param_groups[0]["lr"]
@@ -366,20 +483,22 @@ def fit_embeddings(
         history["val_loss"].append(val_loss)
         history["val_acc"].append(val_acc)
         history["val_map"].append(val_map)
+        history["val_map_rerank"].append(val_map_rerank)
         history["lr"].append(current_lr)
 
         if wandb_run is not None:
-            wandb_run.log(
-                {
-                    "epoch": epoch + 1,
-                    "train_loss": train_loss,
-                    "train_acc": train_acc,
-                    "val_loss": val_loss,
-                    "val_acc": val_acc,
-                    "val_map": val_map,
-                    "learning_rate": current_lr,
-                }
-            )
+            log_payload = {
+                "epoch": epoch + 1,
+                "train_loss": train_loss,
+                "train_acc": train_acc,
+                "val_loss": val_loss,
+                "val_acc": val_acc,
+                "val_map": val_map,
+                "learning_rate": current_lr,
+            }
+            if val_map_rerank is not None:
+                log_payload["val_map_rerank"] = val_map_rerank
+            wandb_run.log(log_payload)
 
         # print(f"  Train Loss: {train_loss:.4f} | Train Acc: {train_acc:.1f}%")
         # print(f"  Val Loss:   {val_loss:.4f} | Val Acc:   {val_acc:.1f}%")
@@ -388,6 +507,7 @@ def fit_embeddings(
         if val_loss < best_val_loss:
             best_val_loss = val_loss
             best_map = val_map
+            best_map_rerank = val_map_rerank
             best_epoch = epoch + 1
             patience_counter = 0
             best_state_dict = {k: v.detach().cpu().clone() for k, v in model.state_dict().items()}
@@ -400,6 +520,7 @@ def fit_embeddings(
                     "optimizer_state_dict": optimizer.state_dict(),
                     "val_loss": val_loss,
                     "val_map": val_map,
+                    "val_map_rerank": val_map_rerank,
                     "config": {k: str(v) if hasattr(v, "__fspath__") else v for k, v in config.items()},
                     "label_encoder_classes": label_encoder.classes_.tolist() if label_encoder else None,
                     "num_classes": len(label_encoder.classes_) if label_encoder else None,
@@ -429,6 +550,7 @@ def fit_embeddings(
         "history": history,
         "best_val_loss": best_val_loss,
         "best_map": best_map,
+        "best_map_rerank": best_map_rerank,
         "best_epoch": best_epoch,
         "epochs_ran": len(history["train_loss"]),
     }

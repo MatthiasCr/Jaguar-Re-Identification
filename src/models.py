@@ -169,13 +169,11 @@ class ArcFaceModel(nn.Module):
         dropout=0.3,
         pretrained=True,
         backbone_out_dim=None,
-        freeze_backbone=True,
+        freeze_backbone=False,
     ):
         super().__init__()
         self.backbone = build_backbone(backbone_name, pretrained=pretrained)
-        if freeze_backbone:
-            for param in self.backbone.parameters():
-                param.requires_grad = False
+        self.set_backbone_trainable(not freeze_backbone)
         if backbone_out_dim is None:
             backbone_out_dim = getattr(self.backbone, "num_features", None)
         if backbone_out_dim is None:
@@ -193,6 +191,10 @@ class ArcFaceModel(nn.Module):
             margin=margin,
             scale=scale,
         )
+
+    def set_backbone_trainable(self, trainable: bool = True):
+        for param in self.backbone.parameters():
+            param.requires_grad = trainable
 
     def forward(self, x, labels):
         features = self.backbone(x)
