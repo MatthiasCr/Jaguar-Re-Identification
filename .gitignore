@@ -10,3 +10,4 @@ data/*
 .env
 .zip
 src/__pycache__/*
+slurm/logs/*

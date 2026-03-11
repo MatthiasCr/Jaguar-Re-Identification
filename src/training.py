@@ -329,13 +329,13 @@ def fit(
 
         train_loss, train_acc = train_epoch(model, train_loader, criterion, optimizer, device)
         val_loss, val_acc = validate_epoch(model, val_loader, criterion, device)
-        val_map = compute_validation_map(model, val_loader, device)
+        val_embeddings, val_labels = extract_embeddings(model, val_loader, device)
+        val_map = compute_map_from_embeddings(val_embeddings, val_labels)
         val_map_rerank = None
         if rerank_config["enabled"]:
-            val_map_rerank = compute_validation_map(
-                model,
-                val_loader,
-                device,
+            val_map_rerank = compute_map_from_embeddings(
+                val_embeddings,
+                val_labels,
                 use_rerank=True,
                 k1=rerank_config["k1"],
                 k2=rerank_config["k2"],

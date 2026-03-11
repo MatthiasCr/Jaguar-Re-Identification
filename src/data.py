@@ -39,8 +39,14 @@ def train_val_split(df: pd.DataFrame, val_split: float, seed: int, stratify_col:
     )
 
 
-def build_transforms_baseline(input_size: int, train: bool, mean=DEFAULT_MEAN, std=DEFAULT_STD):    
-    if train:
+def build_transforms_baseline(
+    input_size: int,
+    train: bool,
+    mean=DEFAULT_MEAN,
+    std=DEFAULT_STD,
+    augment: bool = False,
+):
+    if train and augment:
         return transforms.Compose(
             [
                 transforms.Resize((input_size, input_size)),
@@ -137,8 +143,15 @@ def create_dataloaders(
     std=DEFAULT_STD,
     weighted_sampling: bool = False,
     label_col: str = "label_encoded",
+    augment: bool = False,
 ):
-    train_transform = build_transforms_baseline(input_size=input_size, train=True, mean=mean, std=std)
+    train_transform = build_transforms_baseline(
+        input_size=input_size,
+        train=True,
+        mean=mean,
+        std=std,
+        augment=augment,
+    )
     val_transform = build_transforms_baseline(input_size=input_size, train=False, mean=mean, std=std)
 
     generator = torch.Generator()
