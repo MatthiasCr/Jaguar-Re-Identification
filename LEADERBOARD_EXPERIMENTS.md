@@ -77,3 +77,18 @@ CrossEntropy achives the highest validation accuracy but clearly underperforms o
 From the learning curves we can also observe that CE shows much steeper early loss and accuracy improvements and converges earlier than the other losses. This is consistent with CE being an easier optimization objective, while ArcFace/CosFace spend more time on enforcing stricter embedding clustering/separation.
 
 ArcFace and CosFace perform very similarly and both achieve substantially better mAP than CrossEntropy. This shows that explicit margin constraints improve embedding separability for retrieval. SphereFace also improves over CrossEntropy but remains below ArcFace/CosFace. For the next experiments we will therefore continue with ArcFace.
+
+
+## Experiment 4 - Backbone Fine-Tuning
+
+In the last experiments we always froze the backbone and just trained the a few linear layers as embedding projection and the ArcFace head model. In this experiment we want to evaluate if fine-tuning the backbone during can achieve a higher mAP.
+
+### Setup
+
+
+### Results
+
+
+## Experiment 5 - Hyperparameter Search
+
+In the last four experiments we already found setup (backbone, loss function, backbone freezing) that achieves good scores on kaggle (TODO best kaggle score). 
