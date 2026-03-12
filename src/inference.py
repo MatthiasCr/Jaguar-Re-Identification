@@ -2,6 +2,7 @@ import numpy as np
 import torch
 import pandas as pd
 from tqdm.notebook import tqdm
+import src.data as data
 from src.reranking import cosine_similarity_matrix, reranked_similarity_from_embeddings
 
 
@@ -19,6 +20,29 @@ def extract_embeddings_with_names(model, loader, device):
 
     embeddings = np.vstack(embeddings)
     return names, embeddings
+
+
+def extract_embeddings_with_labels(model, loader, device):
+    model.eval()
+    embeddings = []
+    labels = []
+
+    with torch.no_grad():
+        for images, batch_labels in tqdm(loader, desc="Embedding", leave=False):
+            images = images.to(device)
+            batch_emb = model.get_embeddings(images).cpu().numpy()
+            embeddings.append(batch_emb)
+            labels.append(batch_labels.numpy())
+
+    embeddings = np.vstack(embeddings)
+    labels = np.concatenate(labels)
+    return embeddings, labels
+
+
+def normalize_embeddings(embeddings):
+    norms = np.linalg.norm(embeddings, axis=1, keepdims=True)
+    norms = np.clip(norms, a_min=1e-12, a_max=None)
+    return embeddings / norms
 
 
 def build_embedding_lookup(names, embeddings):
@@ -68,6 +92,102 @@ def compute_similarity_for_pairs(pairs_df, embedding_lookup, use_rerank=False, k
     return similarities
 
 
+def create_submission_from_embeddings(
+    pairs_df,
+    image_names,
+    embeddings,
+    output_path=None,
+    use_rerank=False,
+    k1=20,
+    k2=6,
+    lambda_value=0.3,
+):
+    embedding_lookup = build_embedding_lookup(image_names, embeddings)
+    similarities = compute_similarity_for_pairs(
+        pairs_df,
+        embedding_lookup,
+        use_rerank=use_rerank,
+        k1=k1,
+        k2=k2,
+        lambda_value=lambda_value,
+    )
+    submission_df = pd.DataFrame(
+        {
+            "row_id": pairs_df["row_id"],
+            "similarity": similarities,
+        }
+    )
+    if output_path is not None:
+        submission_df.to_csv(output_path, index=False)
+    return submission_df
+
+
+def extract_tta_embeddings_with_labels(model, df, img_dir, input_size, batch_size, num_workers, views, device, seed=None):
+    tta_model = model.backbone if hasattr(model, "backbone") else model
+    per_view_embeddings = []
+    labels_reference = None
+
+    for view in views:
+        transform = data.build_tta_transform(
+            tta_model,
+            input_size=input_size,
+            crop_scale=view["crop_scale"],
+            anchor=view["anchor"],
+        )
+        loader = data.create_eval_loader(
+            df,
+            img_dir,
+            transform,
+            batch_size=batch_size,
+            num_workers=num_workers,
+            is_test=False,
+            seed=seed,
+        )
+        embeddings, labels = extract_embeddings_with_labels(model, loader, device)
+        per_view_embeddings.append(embeddings)
+        if labels_reference is None:
+            labels_reference = labels
+        elif not np.array_equal(labels_reference, labels):
+            raise ValueError("Validation labels differ across TTA views")
+
+    averaged = np.mean(per_view_embeddings, axis=0).astype(np.float32)
+    averaged = normalize_embeddings(averaged)
+    return averaged, labels_reference
+
+
+def extract_tta_embeddings_with_names(model, df, img_dir, input_size, batch_size, num_workers, views, device, seed=None):
+    tta_model = model.backbone if hasattr(model, "backbone") else model
+    per_view_embeddings = []
+    names_reference = None
+
+    for view in views:
+        transform = data.build_tta_transform(
+            tta_model,
+            input_size=input_size,
+            crop_scale=view["crop_scale"],
+            anchor=view["anchor"],
+        )
+        loader = data.create_eval_loader(
+            df,
+            img_dir,
+            transform,
+            batch_size=batch_size,
+            num_workers=num_workers,
+            is_test=True,
+            seed=seed,
+        )
+        names, embeddings = extract_embeddings_with_names(model, loader, device)
+        per_view_embeddings.append(embeddings)
+        if names_reference is None:
+            names_reference = names
+        elif names_reference != names:
+            raise ValueError("Image ordering differs across TTA views")
+
+    averaged = np.mean(per_view_embeddings, axis=0).astype(np.float32)
+    averaged = normalize_embeddings(averaged)
+    return names_reference, averaged
+
+
 def extract_embeddings_with_names_backbone(backbone, head_model, loader, device):
     backbone.eval()
     head_model.eval()
@@ -98,23 +218,16 @@ def create_submission_model(
     lambda_value=0.3,
 ):
     names, embeddings = extract_embeddings_with_names(model, test_loader, device)
-    embedding_lookup = build_embedding_lookup(names, embeddings)
-    similarities = compute_similarity_for_pairs(
+    submission_df = create_submission_from_embeddings(
         pairs_df,
-        embedding_lookup,
+        names,
+        embeddings,
+        output_path=output_path,
         use_rerank=use_rerank,
         k1=k1,
         k2=k2,
         lambda_value=lambda_value,
     )
-    submission_df = pd.DataFrame(
-        {
-            "row_id": pairs_df["row_id"],
-            "similarity": similarities,
-        }
-    )
-    if output_path is not None:
-        submission_df.to_csv(output_path, index=False)
     return submission_df
 
 
@@ -131,21 +244,14 @@ def create_submission_backbone(
     lambda_value=0.3,
 ):
     names, embeddings = extract_embeddings_with_names_backbone(backbone, head_model, test_loader, device)
-    embedding_lookup = build_embedding_lookup(names, embeddings)
-    similarities = compute_similarity_for_pairs(
+    submission_df = create_submission_from_embeddings(
         pairs_df,
-        embedding_lookup,
+        names,
+        embeddings,
+        output_path=output_path,
         use_rerank=use_rerank,
         k1=k1,
         k2=k2,
         lambda_value=lambda_value,
     )
-    submission_df = pd.DataFrame(
-        {
-            "row_id": pairs_df["row_id"],
-            "similarity": similarities,
-        }
-    )
-    if output_path is not None:
-        submission_df.to_csv(output_path, index=False)
     return submission_df

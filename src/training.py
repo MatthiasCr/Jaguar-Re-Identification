@@ -60,6 +60,12 @@ def get_rerank_config(config):
     }
 
 
+def get_checkpoint_metric(val_map, val_map_rerank):
+    if val_map_rerank is not None:
+        return val_map_rerank, "val_map_rerank"
+    return val_map, "val_map"
+
+
 def train_epoch(model, loader, criterion, optimizer, device):
     model.train()
     total_loss = 0.0
@@ -316,9 +322,11 @@ def fit(
     best_val_loss = float("inf")
     best_map = 0.0
     best_map_rerank = None
+    best_checkpoint_metric = float("-inf")
     patience_counter = 0
     best_epoch = 0
     rerank_config = get_rerank_config(config)
+    best_checkpoint_metric_name = "val_map_rerank" if rerank_config["enabled"] else "val_map"
 
     print(f"Starting training for {config['num_epochs']} epochs...")
     print("=" * 70)
@@ -373,7 +381,10 @@ def fit(
         if val_map_rerank is not None:
             print(f"  Val mAP RR: {val_map_rerank:.4f} | k1={rerank_config['k1']} k2={rerank_config['k2']} lambda={rerank_config['lambda_value']}")
 
-        if val_loss < best_val_loss:
+        checkpoint_metric, checkpoint_metric_name = get_checkpoint_metric(val_map, val_map_rerank)
+        if checkpoint_metric > best_checkpoint_metric:
+            best_checkpoint_metric = checkpoint_metric
+            best_checkpoint_metric_name = checkpoint_metric_name
             best_val_loss = val_loss
             best_map = val_map
             best_map_rerank = val_map_rerank
@@ -396,7 +407,7 @@ def fit(
                 checkpoint_path,
             )
 
-            print("  [New best model saved]")
+            print(f"  [New best model saved by {checkpoint_metric_name}={checkpoint_metric:.4f}]")
         else:
             patience_counter += 1
             print(f"  No improvement. Patience: {patience_counter}/{config['patience']}")
@@ -409,13 +420,19 @@ def fit(
     print()
     print("=" * 70)
     print("Training complete!")
-    print(f"Best epoch: {best_epoch} (Val Loss: {best_val_loss:.4f}, Val mAP: {best_map:.4f})")
+    print(
+        f"Best epoch: {best_epoch} "
+        f"({best_checkpoint_metric_name}: {best_checkpoint_metric:.4f}, "
+        f"Val Loss: {best_val_loss:.4f}, Val mAP: {best_map:.4f})"
+    )
 
     return {
         "history": history,
         "best_val_loss": best_val_loss,
         "best_map": best_map,
         "best_map_rerank": best_map_rerank,
+        "best_checkpoint_metric": best_checkpoint_metric,
+        "best_checkpoint_metric_name": best_checkpoint_metric_name,
         "best_epoch": best_epoch,
         "epochs_ran": len(history["train_loss"]),
     }
@@ -448,10 +465,12 @@ def fit_embeddings(
     best_val_loss = float("inf")
     best_map = 0.0
     best_map_rerank = None
+    best_checkpoint_metric = float("-inf")
     patience_counter = 0
     best_epoch = 0
     best_state_dict = None
     rerank_config = get_rerank_config(config)
+    best_checkpoint_metric_name = "val_map_rerank" if rerank_config["enabled"] else "val_map"
 
     print(f"Starting training for {config['num_epochs']} epochs...")
     print("=" * 70)
@@ -462,13 +481,13 @@ def fit_embeddings(
 
         train_loss, train_acc = train_epoch_embeddings(model, train_loader, criterion, optimizer, device)
         val_loss, val_acc = validate_epoch_embeddings(model, val_loader, criterion, device)
-        val_map = compute_validation_map_from_embeddings(model, val_loader, device)
+        val_embeddings, val_labels = extract_head_embeddings(model, val_loader, device)
+        val_map = compute_map_from_embeddings(val_embeddings, val_labels)
         val_map_rerank = None
         if rerank_config["enabled"]:
-            val_map_rerank = compute_validation_map_from_embeddings(
-                model,
-                val_loader,
-                device,
+            val_map_rerank = compute_map_from_embeddings(
+                val_embeddings,
+                val_labels,
                 use_rerank=True,
                 k1=rerank_config["k1"],
                 k2=rerank_config["k2"],
@@ -504,7 +523,10 @@ def fit_embeddings(
         # print(f"  Val Loss:   {val_loss:.4f} | Val Acc:   {val_acc:.1f}%")
         # print(f"  Val mAP:    {val_map:.4f} | LR: {current_lr:.2e}")
 
-        if val_loss < best_val_loss:
+        checkpoint_metric, checkpoint_metric_name = get_checkpoint_metric(val_map, val_map_rerank)
+        if checkpoint_metric > best_checkpoint_metric:
+            best_checkpoint_metric = checkpoint_metric
+            best_checkpoint_metric_name = checkpoint_metric_name
             best_val_loss = val_loss
             best_map = val_map
             best_map_rerank = val_map_rerank
@@ -541,7 +563,11 @@ def fit_embeddings(
     print()
     print("=" * 70)
     print("Training complete!")
-    print(f"Best epoch: {best_epoch} (Val Loss: {best_val_loss:.4f}, Val mAP: {best_map:.4f})")
+    print(
+        f"Best epoch: {best_epoch} "
+        f"({best_checkpoint_metric_name}: {best_checkpoint_metric:.4f}, "
+        f"Val Loss: {best_val_loss:.4f}, Val mAP: {best_map:.4f})"
+    )
 
     if restore_best and best_state_dict is not None:
         model.load_state_dict(best_state_dict)
@@ -551,6 +577,8 @@ def fit_embeddings(
         "best_val_loss": best_val_loss,
         "best_map": best_map,
         "best_map_rerank": best_map_rerank,
+        "best_checkpoint_metric": best_checkpoint_metric,
+        "best_checkpoint_metric_name": best_checkpoint_metric_name,
         "best_epoch": best_epoch,
         "epochs_ran": len(history["train_loss"]),
     }

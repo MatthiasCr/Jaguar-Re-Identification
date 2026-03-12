@@ -10,6 +10,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import LabelEncoder
 from torch.utils.data import Dataset, DataLoader, WeightedRandomSampler
 from torchvision import transforms
+from torchvision.transforms import functional as TF
 import timm.data
 
 
@@ -46,6 +47,29 @@ def train_val_split(df: pd.DataFrame, val_split: float, seed: int, stratify_col:
         random_state=seed,
         stratify=df[stratify_col],
     )
+
+
+def build_eval_frames_from_config(checkpoint_config, label_col: str = "ground_truth"):
+    data_dir = Path(checkpoint_config["data_dir"])
+    train_df = load_train_df(data_dir)
+    train_df, _ = encode_labels(train_df, label_col=label_col)
+    _, val_df = train_val_split(
+        train_df,
+        val_split=float(checkpoint_config["val_split"]),
+        seed=int(checkpoint_config["seed"]),
+        stratify_col=label_col,
+    )
+
+    pairs_df = load_test_pairs_df(data_dir)
+    unique_images = sorted(set(pairs_df["query_image"].unique()) | set(pairs_df["gallery_image"].unique()))
+    test_df = pd.DataFrame({"filename": unique_images})
+
+    return {
+        "data_dir": data_dir,
+        "val_df": val_df,
+        "pairs_df": pairs_df,
+        "test_df": test_df,
+    }
 
 
 def build_transforms_baseline(
@@ -113,6 +137,66 @@ def build_transforms(model, input_size: int):
     )
 
 
+def get_model_normalization(model):
+    data_config = timm.data.resolve_model_data_config(model)
+    return tuple(data_config["mean"]), tuple(data_config["std"])
+
+
+def get_crop_position(resized_size: int, crop_size: int, anchor: str):
+    max_offset = resized_size - crop_size
+    if anchor == "center":
+        offset = max_offset // 2
+        return offset, offset
+    if anchor == "top_left":
+        return 0, 0
+    if anchor == "top_right":
+        return 0, max_offset
+    if anchor == "bottom_left":
+        return max_offset, 0
+    if anchor == "bottom_right":
+        return max_offset, max_offset
+    raise ValueError(f"Unsupported anchor: {anchor}")
+
+
+class DeterministicTTATransform:
+    def __init__(self, input_size, mean, std, crop_scale=1.0, anchor="center"):
+        self.input_size = input_size
+        self.mean = mean
+        self.std = std
+        self.crop_scale = crop_scale
+        self.anchor = anchor
+
+    def __call__(self, img):
+        img = TF.resize(
+            img,
+            [self.input_size, self.input_size],
+            interpolation=transforms.InterpolationMode.BICUBIC,
+        )
+        if self.crop_scale < 1.0:
+            crop_size = max(int(round(self.input_size * self.crop_scale)), 1)
+            top, left = get_crop_position(self.input_size, crop_size, self.anchor)
+            img = TF.crop(img, top, left, crop_size, crop_size)
+            img = TF.resize(
+                img,
+                [self.input_size, self.input_size],
+                interpolation=transforms.InterpolationMode.BICUBIC,
+            )
+        img = TF.to_tensor(img)
+        img = TF.normalize(img, self.mean, self.std)
+        return img
+
+
+def build_tta_transform(model, input_size: int, crop_scale: float = 1.0, anchor: str = "center"):
+    mean, std = get_model_normalization(model)
+    return DeterministicTTATransform(
+        input_size=input_size,
+        mean=mean,
+        std=std,
+        crop_scale=crop_scale,
+        anchor=anchor,
+    )
+
+
 class JaguarDataset(Dataset):
     def __init__(self, df, img_dir, transform=None, label_col: str = "label_encoded", is_test: bool = False):
         self.df = df.reset_index(drop=True)
@@ -155,6 +239,32 @@ class EmbeddingDataset(Dataset):
 
     def __getitem__(self, idx):
         return self.embeddings[idx], self.labels[idx]
+
+
+def create_eval_loader(
+    df,
+    img_dir,
+    transform,
+    batch_size,
+    num_workers=2,
+    label_col: str = "label_encoded",
+    is_test: bool = False,
+    seed: int | None = None,
+):
+    generator = torch.Generator()
+    if seed is None:
+        seed = int(os.getenv("PYTHONHASHSEED", "0"))
+    generator.manual_seed(seed)
+
+    return DataLoader(
+        JaguarDataset(df, img_dir, transform=transform, label_col=label_col, is_test=is_test),
+        batch_size=batch_size,
+        shuffle=False,
+        generator=generator,
+        num_workers=num_workers,
+        worker_init_fn=seed_worker,
+        pin_memory=False,
+    )
 
 
 def create_dataloaders(

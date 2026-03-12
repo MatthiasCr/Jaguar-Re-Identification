@@ -1,4 +1,5 @@
 import math
+from pathlib import Path
 
 import torch
 import torch.nn as nn
@@ -228,7 +229,8 @@ class ArcFaceModel(nn.Module):
         pretrained=True,
         backbone_out_dim=None,
         freeze_backbone=False,
-        freeze_last_n_layers=0,
+        train_last_n_layers=0,
+        freeze_last_n_layers=None,
         use_gem=False,
         gem_p=3.0,
         gem_eps=1e-6,
@@ -246,8 +248,8 @@ class ArcFaceModel(nn.Module):
         self.set_backbone_trainable(True)
         if freeze_backbone:
             self.set_backbone_trainable(False)
-        elif freeze_last_n_layers > 0:
-            self.freeze_backbone_last_n_layers(freeze_last_n_layers)
+        elif train_last_n_layers > 0:
+            self.freeze_backbone_all_but_last_n_layers(train_last_n_layers)
         if backbone_out_dim is None:
             backbone_out_dim = getattr(self.backbone, "num_features", None)
         if backbone_out_dim is None:
@@ -270,23 +272,26 @@ class ArcFaceModel(nn.Module):
         for param in self.backbone.parameters():
             param.requires_grad = trainable
 
-    def freeze_backbone_last_n_layers(self, freeze_last_n_layers: int):
-        if freeze_last_n_layers < 0:
-            raise ValueError("freeze_last_n_layers must be >= 0")
-        if freeze_last_n_layers == 0:
+    def freeze_backbone_all_but_last_n_layers(self, train_last_n_layers: int):
+        if train_last_n_layers < 0:
+            raise ValueError("train_last_n_layers must be >= 0")
+
+        self.set_backbone_trainable(False)
+        if train_last_n_layers == 0:
             return
 
         if hasattr(self.backbone, "blocks"):
             blocks = list(self.backbone.blocks)
-            num_blocks_to_freeze = min(freeze_last_n_layers, len(blocks))
-            for block in blocks[-num_blocks_to_freeze:]:
+            num_blocks_to_train = min(train_last_n_layers, len(blocks))
+            for block in blocks[-num_blocks_to_train:]:
                 for param in block.parameters():
-                    param.requires_grad = False
+                    param.requires_grad = True
 
-            for attr_name in ("norm", "fc_norm"):
-                if hasattr(self.backbone, attr_name):
-                    for param in getattr(self.backbone, attr_name).parameters():
-                        param.requires_grad = False
+            if num_blocks_to_train > 0:
+                for attr_name in ("norm", "fc_norm"):
+                    if hasattr(self.backbone, attr_name):
+                        for param in getattr(self.backbone, attr_name).parameters():
+                            param.requires_grad = True
             return
 
         param_groups = []
@@ -298,10 +303,14 @@ class ArcFaceModel(nn.Module):
         if not param_groups:
             return
 
-        num_groups_to_freeze = min(freeze_last_n_layers, len(param_groups))
-        for params in param_groups[-num_groups_to_freeze:]:
+        num_groups_to_train = min(train_last_n_layers, len(param_groups))
+        for params in param_groups[-num_groups_to_train:]:
             for param in params:
-                param.requires_grad = False
+                param.requires_grad = True
+
+    def freeze_backbone_last_n_layers(self, freeze_last_n_layers: int):
+        # Backward-compatible alias; the intended semantics are "train last n layers".
+        self.freeze_backbone_all_but_last_n_layers(freeze_last_n_layers)
 
     def forward(self, x, labels):
         features = self.backbone(x)
@@ -313,6 +322,32 @@ class ArcFaceModel(nn.Module):
         features = self.backbone(x)
         embeddings = self.embedding_net(features)
         return F.normalize(embeddings, p=2, dim=1)
+
+
+def load_arcface_model_from_checkpoint(checkpoint_path, device, strict: bool = True):
+    checkpoint_path = Path(checkpoint_path)
+    checkpoint = torch.load(checkpoint_path, map_location=device, weights_only=False)
+    checkpoint_config = checkpoint["config"]
+
+    num_classes = checkpoint.get("num_classes")
+    if num_classes is None:
+        num_classes = len(checkpoint["label_encoder_classes"])
+
+    model = ArcFaceModel(
+        backbone_name=checkpoint_config["backbone_name"],
+        num_classes=num_classes,
+        embedding_dim=int(checkpoint_config["embedding_dim"]),
+        hidden_dim=int(checkpoint_config["hidden_dim"]),
+        margin=float(checkpoint_config.get("arcface_margin", 0.5)),
+        scale=float(checkpoint_config.get("arcface_scale", 64.0)),
+        dropout=float(checkpoint_config.get("dropout", 0.3)),
+        pretrained=False,
+        freeze_backbone=False,
+        train_last_n_layers=0,
+    ).to(device)
+    model.load_state_dict(checkpoint["model_state_dict"], strict=strict)
+    model.eval()
+    return model, checkpoint, checkpoint_config
 
 
 class ArcFaceHeadModel(nn.Module):
