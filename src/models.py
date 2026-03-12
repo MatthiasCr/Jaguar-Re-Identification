@@ -5,11 +5,69 @@ import torch.nn as nn
 import torch.nn.functional as F
 import timm
 
+
 def build_backbone(backbone_name: str, pretrained: bool = True):
     return timm.create_model(backbone_name, pretrained=pretrained
     # , features_only=True
     , num_classes=0
     )
+
+
+class GeM(nn.Module):
+    """Generalized mean pooling over the spatial dimensions."""
+
+    def __init__(self, p=3.0, eps=1e-6):
+        super().__init__()
+        self.p = nn.Parameter(torch.ones(1) * p)
+        self.eps = eps
+
+    def forward(self, x):
+        return F.avg_pool2d(
+            x.clamp(min=self.eps).pow(self.p),
+            kernel_size=(x.size(-2), x.size(-1)),
+        ).pow(1.0 / self.p)
+
+
+class GeMBackbone(nn.Module):
+    """Wrap a timm backbone and replace its default pooling with GeM."""
+
+    def __init__(self, backbone_name: str, pretrained: bool = True, p: float = 3.0, eps: float = 1e-6):
+        super().__init__()
+        self.backbone = timm.create_model(backbone_name, pretrained=pretrained, num_classes=0)
+        self.gem = GeM(p=p, eps=eps)
+        self.num_features = getattr(self.backbone, "num_features", None)
+        if self.num_features is None:
+            raise ValueError("Backbone output dimension not found.")
+
+    def _tokens_to_grid(self, features):
+        if features.dim() != 3:
+            return features
+
+        num_prefix_tokens = getattr(self.backbone, "num_prefix_tokens", 0)
+        tokens = features[:, num_prefix_tokens:, :]
+        batch_size, num_tokens, channels = tokens.shape
+
+        grid_size = getattr(getattr(self.backbone, "patch_embed", None), "grid_size", None)
+        if grid_size is not None:
+            height, width = grid_size
+        else:
+            side = int(math.sqrt(num_tokens))
+            if side * side != num_tokens:
+                raise ValueError(f"Cannot infer token grid from {num_tokens} tokens.")
+            height = width = side
+
+        if height * width != num_tokens:
+            raise ValueError(f"Token grid mismatch: grid {height}x{width} != {num_tokens} tokens.")
+
+        return tokens.transpose(1, 2).reshape(batch_size, channels, height, width)
+
+    def forward(self, x):
+        features = self.backbone.forward_features(x)
+        if features.dim() == 2:
+            return features
+
+        features = self._tokens_to_grid(features)
+        return self.gem(features).flatten(1)
 
 
 class EmbeddingProjection(nn.Module):
@@ -171,9 +229,20 @@ class ArcFaceModel(nn.Module):
         backbone_out_dim=None,
         freeze_backbone=False,
         freeze_last_n_layers=0,
+        use_gem=False,
+        gem_p=3.0,
+        gem_eps=1e-6,
     ):
         super().__init__()
-        self.backbone = build_backbone(backbone_name, pretrained=pretrained)
+        if use_gem:
+            self.backbone = GeMBackbone(
+                backbone_name=backbone_name,
+                pretrained=pretrained,
+                p=gem_p,
+                eps=gem_eps,
+            )
+        else:
+            self.backbone = build_backbone(backbone_name, pretrained=pretrained)
         self.set_backbone_trainable(True)
         if freeze_backbone:
             self.set_backbone_trainable(False)

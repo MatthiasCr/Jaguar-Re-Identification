@@ -93,7 +93,8 @@ def build_transforms_baseline(
 
 
 def build_transforms(model, input_size: int):
-    data_config = timm.data.resolve_model_data_config(model)
+    backbone_model = getattr(model, "backbone", model)
+    data_config = timm.data.resolve_model_data_config(backbone_model)
     transform = timm.data.create_transform(**data_config, is_training=False)
 
     # extract the normalization parameters from the backbone transform
