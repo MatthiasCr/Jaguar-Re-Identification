@@ -170,10 +170,15 @@ class ArcFaceModel(nn.Module):
         pretrained=True,
         backbone_out_dim=None,
         freeze_backbone=False,
+        freeze_last_n_layers=0,
     ):
         super().__init__()
         self.backbone = build_backbone(backbone_name, pretrained=pretrained)
-        self.set_backbone_trainable(not freeze_backbone)
+        self.set_backbone_trainable(True)
+        if freeze_backbone:
+            self.set_backbone_trainable(False)
+        elif freeze_last_n_layers > 0:
+            self.freeze_backbone_last_n_layers(freeze_last_n_layers)
         if backbone_out_dim is None:
             backbone_out_dim = getattr(self.backbone, "num_features", None)
         if backbone_out_dim is None:
@@ -195,6 +200,39 @@ class ArcFaceModel(nn.Module):
     def set_backbone_trainable(self, trainable: bool = True):
         for param in self.backbone.parameters():
             param.requires_grad = trainable
+
+    def freeze_backbone_last_n_layers(self, freeze_last_n_layers: int):
+        if freeze_last_n_layers < 0:
+            raise ValueError("freeze_last_n_layers must be >= 0")
+        if freeze_last_n_layers == 0:
+            return
+
+        if hasattr(self.backbone, "blocks"):
+            blocks = list(self.backbone.blocks)
+            num_blocks_to_freeze = min(freeze_last_n_layers, len(blocks))
+            for block in blocks[-num_blocks_to_freeze:]:
+                for param in block.parameters():
+                    param.requires_grad = False
+
+            for attr_name in ("norm", "fc_norm"):
+                if hasattr(self.backbone, attr_name):
+                    for param in getattr(self.backbone, attr_name).parameters():
+                        param.requires_grad = False
+            return
+
+        param_groups = []
+        for _, module in self.backbone.named_children():
+            params = list(module.parameters())
+            if params:
+                param_groups.append(params)
+
+        if not param_groups:
+            return
+
+        num_groups_to_freeze = min(freeze_last_n_layers, len(param_groups))
+        for params in param_groups[-num_groups_to_freeze:]:
+            for param in params:
+                param.requires_grad = False
 
     def forward(self, x, labels):
         features = self.backbone(x)

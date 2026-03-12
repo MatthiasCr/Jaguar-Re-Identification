@@ -1,6 +1,8 @@
 import os
+import random
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 import torch
 from PIL import Image
@@ -13,6 +15,13 @@ import timm.data
 
 DEFAULT_MEAN = (0.481, 0.457, 0.408)
 DEFAULT_STD = (0.268, 0.261, 0.275)
+
+
+def seed_worker(worker_id):
+    del worker_id
+    worker_seed = torch.initial_seed() % 2**32
+    np.random.seed(worker_seed)
+    random.seed(worker_seed)
 
 
 def load_train_df(data_dir: Path) -> pd.DataFrame:
@@ -49,10 +58,25 @@ def build_transforms_baseline(
     if train and augment:
         return transforms.Compose(
             [
-                transforms.Resize((input_size, input_size)),
-                transforms.RandomHorizontalFlip(),
+                transforms.RandomResizedCrop(
+                    (input_size, input_size),
+                    scale=(0.85, 1.0),
+                    ratio=(0.9, 1.1),
+                ),
                 transforms.RandomAffine(degrees=15, translate=(0.1, 0.1), scale=(0.9, 1.1)),
-                transforms.ColorJitter(brightness=0.2, contrast=0.2),
+                transforms.ColorJitter(
+                    brightness=0.2,
+                    contrast=0.2,
+                    saturation=0.15,
+                    hue=0.03,
+                ),
+                transforms.RandomApply(
+                    [
+                        transforms.GaussianBlur(kernel_size=3, sigma=(0.1, 1.0)),
+                    ],
+                    p=0.15,
+                ),
+                transforms.RandomAdjustSharpness(sharpness_factor=1.5, p=0.1),
                 transforms.ToTensor(),
                 transforms.Normalize(mean=mean, std=std),
                 transforms.RandomErasing(p=0.25),
@@ -174,6 +198,7 @@ def create_dataloaders(
             batch_size=batch_size,
             sampler=train_sampler,
             num_workers=num_workers,
+            worker_init_fn=seed_worker,
             pin_memory=False,
         )
     else:
@@ -183,6 +208,7 @@ def create_dataloaders(
             shuffle=True,
             generator=generator,
             num_workers=num_workers,
+            worker_init_fn=seed_worker,
             pin_memory=False,
         )
 
@@ -192,6 +218,7 @@ def create_dataloaders(
         shuffle=False,
         generator=generator,
         num_workers=num_workers,
+        worker_init_fn=seed_worker,
         pin_memory=False,
     )
 
@@ -218,6 +245,7 @@ def create_backbone_dataloaders(
         shuffle=False,
         generator=generator,
         num_workers=num_workers,
+        worker_init_fn=seed_worker,
         pin_memory=False,
     )
 
@@ -227,6 +255,7 @@ def create_backbone_dataloaders(
         shuffle=False,
         generator=generator,
         num_workers=num_workers,
+        worker_init_fn=seed_worker,
         pin_memory=False,
     )
 
@@ -248,6 +277,7 @@ def create_test_loader(
         batch_size=batch_size,
         shuffle=False,
         num_workers=num_workers,
+        worker_init_fn=seed_worker,
         pin_memory=False,
     )
     return test_loader
@@ -288,6 +318,7 @@ def create_embedding_dataloaders(
             batch_size=batch_size,
             sampler=train_sampler,
             num_workers=num_workers,
+            worker_init_fn=seed_worker,
             pin_memory=False,
         )
     else:
@@ -297,6 +328,7 @@ def create_embedding_dataloaders(
             shuffle=True,
             num_workers=num_workers,
             generator=generator,
+            worker_init_fn=seed_worker,
             pin_memory=False,
         )
 
@@ -306,6 +338,7 @@ def create_embedding_dataloaders(
         shuffle=False,
         num_workers=num_workers,
         generator=generator,
+        worker_init_fn=seed_worker,
         pin_memory=False,
     )
 
