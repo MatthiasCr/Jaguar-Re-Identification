@@ -40,7 +40,4 @@ All experiments were run on the HPI SCI cluster using an NVIDIA A100 40GB GPU.
 |10|Background vs. no Background|EDA||||
 |11|Interpretability Visualization LRP|EDA||||
 |12|Optimizer / Scheduler Comparison|EDA||||
-||||||||
-||||||||
-
-
+Jaguar-Re-Identification
