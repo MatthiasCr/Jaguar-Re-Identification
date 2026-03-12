@@ -31,11 +31,11 @@ All experiments were run on the HPI SCI cluster using an NVIDIA A100 40GB GPU.
 |01|Backbone Comparison|Leaderboard|[Documentation](LEADERBOARD_EXPERIMENTS.md#experiment-1---backbone-comparison)|[Notebook](notebooks/01_backbones.ipynb)|[W&B Run Group](https://wandb.ai/juggling-jaguars/jaguar-reid-jugglingjaguars/groups/Experiment-1-Backbones)|
 |02|Loss Function Comparison|Leaderboard|[Documentation](LEADERBOARD_EXPERIMENTS.md#experiment-2---loss-function-comparison)|[Notebook](notebooks/02_loss_functions.ipynb)|[W&B Run Group](https://wandb.ai/juggling-jaguars/jaguar-reid-jugglingjaguars/groups/Experiment-2-LossFunctions)|
 |03|Handling Data Imbalance with weighted Sampling|EDA|[Documentation](EDA_EXPERIMENTS.md#experiment-3---weighted-sampling)|[Notebook](notebooks/03_weighted_sampling.ipynb)|[W&B Run Group](https://wandb.ai/juggling-jaguars/jaguar-reid-jugglingjaguars/groups/Experiment-3-WeightedSampling)|
-|04|K-Reciprocal Re-Ranking|Leaderboard||||
-|05|Optimizer / Scheduler Comparison|EDA||||
-|06|Training Stability across different random seeds|EDA||||
-|07|Background vs. no Background|EDA||||
-|08|Interpretability Visualization|EDA||||
-|09|Hyperparameter Sweep|Leaderboard||||
-|10|||||||
+|04|Backbone Freezing vs. Fine-Tuning|Leaderboard||||
+|05|K-Reciprocal Re-Ranking|Leaderboard||||
+|06|Optimizer / Scheduler Comparison|EDA||||
+|07|Training Stability across different random seeds|EDA||||
+|08|Background vs. no Background|EDA||||
+|09|Interpretability Visualization|EDA||||
+|10|Hyperparameter Sweep|Leaderboard||||
 |||||||
