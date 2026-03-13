@@ -81,6 +81,10 @@ ArcFace and CosFace perform very similarly and both achieve substantially better
 
 ## Experiment 4 - Backbone Fine-Tuning
 
+| [Notebook]() | 
+[W&B Run Group]() | 
+Kaggle Submission: best run fine-tune all, Score: 0.907 | 
+
 In the last experiments we always froze the backbone and just trained the a few linear layers as embedding projection and the ArcFace head model. In this experiment we want to evaluate if fine-tuning the backbone during can achieve a higher mAP.
 
 ### Setup
@@ -91,4 +95,8 @@ In the last experiments we always froze the backbone and just trained the a few 
 
 ## Experiment 5 - Hyperparameter Search
 
-In the last four experiments we already found setup (backbone, loss function, backbone freezing) that achieves good scores on kaggle (TODO best kaggle score). 
+| [Notebook]() | 
+[W&B Run Group]() | 
+Kaggle Submission: Score: 0.912 | 
+
+In the last four experiments we already found setup (backbone, loss function, backbone freezing) that achieves good scores on kaggle (0.907). 
