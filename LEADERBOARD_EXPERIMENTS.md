@@ -100,3 +100,16 @@ In the last experiments we always froze the backbone and just trained the a few 
 Kaggle Submission: Score: 0.912 | 
 
 In the last four experiments we already found setup (backbone, loss function, backbone freezing) that achieves good scores on kaggle (0.907). 
+
+## Experiment 6 - K-Reciprocal Re-Ranking
+
+| [Notebook]() | 
+[W&B Run Group]() | 
+Kaggle Submission: Score: TODO | 
+
+
+## Experiment 7 - GeM Pooling
+
+| [Notebook]() | 
+[W&B Run Group]() | 
+Kaggle Submission: Score: 0.903 | 
