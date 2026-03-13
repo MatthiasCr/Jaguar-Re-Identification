@@ -81,21 +81,44 @@ ArcFace and CosFace perform very similarly and both achieve substantially better
 
 ## Experiment 4 - Backbone Fine-Tuning
 
-| [Notebook]() | 
-[W&B Run Group]() | 
+| [Notebook](notebooks/04_backbone_finetuning.ipynb) | 
+[W&B Run Group](https://wandb.ai/juggling-jaguars/jaguar-reid-jugglingjaguars/groups/Experiment-4-BackboneFinetuning/) | 
 Kaggle Submission: best run fine-tune all, Score: 0.907 | 
 
-In the last experiments we always froze the backbone and just trained the a few linear layers as embedding projection and the ArcFace head model. In this experiment we want to evaluate if fine-tuning the backbone during can achieve a higher mAP.
+In the last experiments we always froze the backbone and just trained a few linear layers as embedding projection and the ArcFace head model. However, the backbone is pretrained on huge amounts of general image data with the training goal of general image classification. The backbone is therefore not specialized on our specific task of jaguar re-identification. Fine-tuning the last few layers or even the entire backbone can often help the model adapt to a specific task and dataset. In this experiment we want to evaluate if fine-tuning the backbone during training can achieve a higher identity balanced mAP.
 
 ### Setup
 
+We use the previously best performing backbone which is Eva-02 Large. This model is a vision transformer and consists of **24 identical transfomer-encoder blocks** (self-attention, SwiGlu, RoPE, MLP). Each of these blocks have around 12.6 million parameters which sums up to around 305 million parameters in total. 
+We evaluate different levels of backbone fine-tuning/freezing:
+
+- **Backbone completely frozen** - the backbone is not retrained at all. This is the baseline.
+- **Fine-Tune last 2 Blocks** - only last 2 transformer-encoder blocks are trainable
+- **Fine-Tune last 4 Blocks**
+- **Fine-Tune last 8 Blocks**
+- **Fine-Tune the entire backbone** - this makes all backbone parameters trainable
+
+Since the Eva-02 model is large and our data is relativly small, backpropagation and weight updates on the backbone comes with risks of changing the backbone to much and thus "destroying" the pretrained weights. Therefore we will use a smaller learning rate for the backbone parameters: The backbone learning rate will be `1e-5` which is ten times smaller than the learning rate for the ArcFace head (`1e-4`).
+
+For the run with the fully frozen backbone we precompute the backbone embeddings for all training and validation data once and cache them to speed up training (same how we did it in the first three experiments). The other runs are trained end-to-end, so all images are processed through the backbone again in every forward pass, which leads to much longe training times. 
+
+All other hyperparameters will be fixed for each run. All runs get a budget of 100 epochs with a patience of 8 for early stopping. The learning rate for both head and backbone is scheduled using `ReduceLROnPlateau` with a patience of 2.
 
 ### Results
 
+|run|backbone trainable params|epochs trained|time per epoch|best val mAP|kaggle public score|
+|--|--:|--:|--:|--:|--|
+|freeze all|0|60| 2.9 s|0.854|-|
+|train last 2|12,600,000|39|6.00 min|0.874|-|
+|train last 4|25,200,000|28|6.14 min|0.881|-|
+|train last 8|50,400,000|19|5.51 min|0.886|-|
+|train all|304,055,232|16|5.71 min|0.902|0.907|
+
+![](/images/e4_wandb_dashboard.png)
 
 ## Experiment 5 - Hyperparameter Search
 
-| [Notebook]() | 
+| [Notebook](notebooks/05_hyperparamter_search.ipynb) | 
 [W&B Run Group]() | 
 Kaggle Submission: Score: 0.912 | 
 
@@ -110,6 +133,6 @@ Kaggle Submission: Score: TODO |
 
 ## Experiment 7 - GeM Pooling
 
-| [Notebook]() | 
+| [Notebook](notebooks/07_gem_pooling.ipynb) | 
 [W&B Run Group]() | 
 Kaggle Submission: Score: 0.903 | 
