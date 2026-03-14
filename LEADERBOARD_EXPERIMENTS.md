@@ -122,7 +122,67 @@ All other hyperparameters will be fixed for each run. All runs get a budget of 1
 [W&B Run Group](https://wandb.ai/juggling-jaguars/jaguar-reid-jugglingjaguars/groups/Experiment-5-HyperparameterSearch) | 
 Kaggle Submission: Score: 0.912 | 
 
-In the last four experiments we already found setup (backbone, loss function, backbone freezing) that achieves good scores on kaggle (0.907). 
+In the previous experiments we fixed the general architecture: EVA-02 Large backbone, ArcFace loss, and full backbone fine-tuning. This already achieved a strong Kaggle score of `0.907`, but many training hyperparameters were still chosen manually. The goal of this experiment was therefore to identify a better combination of learning rates, regularization, head width, and training augmentation.
+
+### Setup
+
+We keep the overall model architecture fixed:
+
+- **Backbone:** `eva02_large_patch14_448.mim_m38m_ft_in22k_in1k`
+- **Input size:** `448`
+- **Training mode:** full backbone fine-tuning (`freeze_backbone=False`)
+- **Loss/head:** ArcFace with `margin=0.5`, `scale=64`
+- **Optimizer:** AdamW
+- **Scheduler:** ReduceLROnPlateau with patience `2`
+- **Validation split:** `0.2`
+- **Seed:** `42`
+- **Reranking during validation:** enabled with `k1=20`, `k2=6`, `lambda=0.3`
+
+For each sampled run we train a fresh model and select the best checkpoint by **validation rerank mAP**.
+
+### Search Space
+
+We perform a random search over the following parameters:
+
+|parameter|tested values|
+|--|--|
+|head learning rate|`3e-5`, `1e-4`, `3e-4`|
+|backbone learning rate|`3e-6`, `1e-5`, `3e-5`|
+|weight decay|`1e-5`, `1e-4`, `5e-4`|
+|dropout|`0.2`, `0.3`, `0.4`|
+|train augmentation|`True`, `False`|
+|batch size|`16`, `32`|
+|embedding dimension|`256`, `384`|
+|hidden dimension|`512`, `768`|
+
+
+### Results
+
+In total we trained 50 configurations and logged them to W&B. Below we report the strongest configurations.
+
+|run|head lr|backbone lr|weight decay|dropout|aug|batch|embed|hidden|best val mAP|best val mAP rerank|best val loss|best epoch|
+|--|--:|--:|--:|--:|--|--:|--:|--:|--:|--:|--:|--:|
+|`eva_unfrozen_rs_04_hlr1e-04_blr1e-05_wd1e-05_do0.2_aug1_bs16`|1e-4|1e-5|1e-5|0.2|on|16|384|768|0.9170|**0.9365**|2.2664|18|
+|`eva_unfrozen_rs_08_hlr3e-04_blr3e-05_wd1e-04_do0.3_aug0_bs16`|3e-4|3e-5|1e-4|0.3|off|16|256|512|**0.9355**|0.9336|2.4942|10|
+|`eva_unfrozen_rs_08_hlr3e-05_blr3e-05_wd1e-04_do0.2_aug0_bs16`|3e-5|3e-5|1e-4|0.2|off|16|384|768|0.9095|0.9238|**1.8927**|21|
+|`eva_unfrozen_rs_01_hlr3e-04_blr1e-05_wd5e-04_do0.2_aug1_bs32`|3e-4|1e-5|5e-4|0.2|on|32|384|768|0.8989|0.9226|2.1571|8|
+|`eva_unfrozen_rs_02_hlr3e-05_blr1e-05_wd5e-04_do0.3_aug0_bs16`|3e-5|1e-5|5e-4|0.3|off|16|384|768|0.9127|0.9201|1.8237|25|
+
+Several useful patterns emerge from the search:
+
+- **Batch size 16** dominates the top runs. All five best runs use batch size `16`.
+- **384 / 768** is a strong head size. Most top rerank results use `embedding_dim=384` and `hidden_dim=768`.
+- **Low dropout helps.** The strongest runs use `0.2` or `0.3`; `0.4` appears less competitive.
+- **Both augmentation settings can work.** The best reranked run uses augmentation, but several other top runs perform best without it.
+- **Reranked ranking and plain mAP do not always choose the same winner.** One run achieves the best plain validation mAP (`0.9355`) but is slightly behind the best reranked validation mAP (`0.9365`).
+
+The best run of the search is therefore:
+
+- **`eva_unfrozen_rs_04_hlr1e-04_blr1e-05_wd1e-05_do0.2_aug1_bs16`**
+- best validation mAP: **0.9170**
+- best validation rerank mAP: **0.9365**
+
+This run became the new default checkpoint for later experiments and improved the Kaggle public score from `0.907` to `0.912`.
 
 ## Experiment 6 - K-Reciprocal Re-Ranking
 
@@ -177,7 +237,7 @@ We therefore conclude that **deterministic crop-based TTA does not provide a mea
 [W&B Run Group](https://wandb.ai/juggling-jaguars/jaguar-reid-jugglingjaguars/groups/Experiment-9-RandomSeeds) | 
 No new Kaggle submission | 
 
-After fixing the training recipe, we wanted to measure how much variance remains purely from the random seed. This is important because if seed-to-seed variance is large, then small differences between experimental tweaks can be misleading unless runs are repeated.
+After fixing the training parameters, we wanted to measure how much variance remains purely from the random seed. This is important because if seed-to-seed variance is large, then small differences between experimental tweaks can be misleading unless runs are repeated.
 
 ### Setup
 
