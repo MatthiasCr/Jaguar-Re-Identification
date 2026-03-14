@@ -158,7 +158,7 @@ We perform a random search over the following parameters:
 
 ### Results
 
-In total we trained 50 configurations and logged them to W&B. Below we report the strongest configurations.
+In total we trained 48 configurations and logged them to W&B. Below we report the strongest configurations.
 
 |run|head lr|backbone lr|weight decay|dropout|aug|batch|embed|hidden|best val mAP|best val mAP rerank|best val loss|best epoch|
 |--|--:|--:|--:|--:|--|--:|--:|--:|--:|--:|--:|--:|
@@ -186,9 +186,67 @@ This run became the new default checkpoint for later experiments and improved th
 
 ## Experiment 6 - K-Reciprocal Re-Ranking
 
-| [Notebook]() | 
-[W&B Run Group]() | 
-Kaggle Submission: Score: TODO | 
+| [Notebook](notebooks/06_k_reciprocal_re_ranking.ipynb) | 
+[W&B Project](https://wandb.ai/juggling-jaguars/jaguar-reid-jugglingjaguars) | 
+No new Kaggle submission | 
+
+We wanted to test whether the default k-reciprocal reranking parameters were already good enough for our current validation setup, or whether a small validation-only sweep over `k1` and `lambda_value` could still improve retrieval.
+
+### Setup
+
+We keep the model fixed and only tune reranking. The selected checkpoint comes from the hyperparameter search.
+
+- **Checkpoint:** `eva_unfrozen_rs_08_hlr3e-05_blr3e-05_wd1e-04_do0.2_aug0_bs16`
+- **Backbone:** EVA-02 Large fine-tuned end-to-end
+- **Head learning rate:** `3e-5`
+- **Backbone learning rate:** `3e-5`
+- **Weight decay:** `1e-4`
+- **Dropout:** `0.2`
+- **Train augmentation:** off
+- **Batch size:** `16`
+- **Embedding / hidden dim:** `384 / 768`
+- **Best checkpoint epoch:** `21`
+
+We reconstruct the validation split for this checkpoint, extract the validation embeddings once, and then run a small grid search over reranking:
+
+- **`k1`** in `{10, 15, 20, 25, 30, 35, 40}`
+- **`lambda_value`** in `{0.05, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6}`
+- **`k2`** fixed at `6`
+
+For each parameter pair we compute validation rerank mAP and compare it against both the no-rerank baseline and the checkpoint's default rerank setting.
+
+### Results
+
+|setting|val mAP rerank|
+|--|--:|
+|no reranking|0.9095|
+|default rerank (`k1=20`, `k2=6`, `lambda=0.3`)|**0.9237**|
+|best grid-search result|**0.9237**|
+
+The validation sweep did **not** improve on the default reranking setup. The best searched configuration was again:
+
+- **`k1=20`**
+- **`k2=6`**
+- **`lambda_value=0.3`**
+
+This means the tuned search gained:
+
+- **`+0.0142`** over no reranking
+- **`+0.0000`** over the default reranking parameters
+
+So the practical conclusion is modest but useful: **for this checkpoint and this validation split, the existing rerank defaults were already as good as the tested alternatives**.
+
+### Limitations
+
+This experiment has several important limitations, so the result should be interpreted carefully:
+
+- It uses **one specific checkpoint**, not all strong models. In particular, the selected model comes from the available `incomplete_random_search_results.csv` snapshot and is **not the final strongest reranked model from Experiment 5**.
+- The chosen checkpoint was already evaluated and selected with the **same default reranking parameters** (`k1=20`, `k2=6`, `lambda=0.3`) on the same validation setup. That biases the search toward rediscovering the defaults.
+- The observed optimum depends on the **training configuration** of this checkpoint. Learning rates, dropout, augmentation, head width, and the resulting embedding geometry can all change which reranking parameters work best.
+- We only tune **`k1` and `lambda_value`**, while **`k2` stays fixed at `6`**. A broader search might still find different trade-offs.
+- The sweep is done on a **single validation split**, so it tells us that the defaults are robust for this split, but not that they are universally optimal for every model or for Kaggle test performance.
+
+We therefore treat this experiment mainly as a **sanity check**: it supports keeping the standard rerank parameters for later experiments, but it does **not** prove that reranking can no longer be improved in general.
 
 
 ## Experiment 7 - GeM Pooling
