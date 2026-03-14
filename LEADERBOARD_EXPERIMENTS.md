@@ -136,3 +136,36 @@ Kaggle Submission: Score: TODO |
 | [Notebook](notebooks/07_gem_pooling.ipynb) | 
 [W&B Run Group]() | 
 Kaggle Submission: Score: 0.903 | 
+
+
+## Experiment 8 - TTA Comparison
+
+| [Notebook](notebooks/08_tta_comparison.ipynb) | 
+[W&B Run Group]() | 
+No new Kaggle submission | 
+
+After establishing a strong EVA-02 fine-tuned baseline, we tested whether deterministic test-time augmentation can improve retrieval performance at inference time. The central question was simple: does TTA help our current model enough to justify the additional inference cost?
+
+### Setup
+
+We keep the model fixed and only change inference-time augmentation. The evaluated checkpoint is `EVA02_Large_finetune.pth` (`eva02_finetune_seed42`). We compare four deterministic TTA presets:
+
+- **none** - only the default resized image
+- **light** - base view plus a centered 95% crop
+- **medium** - base view plus centered 95% and 90% crops
+- **heavy** - medium plus off-center 90% crops (`top_left`, `bottom_right`)
+
+For each TTA preset we extract embeddings for all views, average the embeddings, normalize them again, and compute both plain validation mAP and reranked validation mAP.
+
+### Results
+
+|TTA mode|views|val mAP|val mAP rerank|
+|--|--:|--:|--:|
+|none|1|0.8903|0.8930|
+|light|2|0.8919|0.8920|
+|medium|3|0.8922|0.8923|
+|heavy|5|0.8915|0.8910|
+
+The differences are marginal. While `light` and `medium` slightly improve the plain validation mAP, none of the deterministic TTA presets improves the reranked validation mAP over the no-TTA baseline. In fact, the best reranked score is obtained with **no TTA at all** (`0.8930`), while the larger TTA presets are slightly worse.
+
+We therefore conclude that **deterministic crop-based TTA does not provide a meaningful benefit for this model in our setup**. Given the extra inference cost, we do not continue with TTA for leaderboard submissions.
