@@ -284,10 +284,10 @@ So this is a very targeted architectural test: if GeM helps here, the gain shoul
 
 We repeated the comparison for three training seeds (`42`, `43`, `44`) to avoid over-interpreting a single lucky run.
 
-|variant|pooling|seeds|mean best val mAP|std|mean best val mAP rerank|std|mean best val loss|mean best epoch|notes|
-|--|--|--:|--:|--:|--:|--:|--:|--:|--|
-|Default pooling|default|3|0.9168|0.0177|**0.9215**|0.0208|**1.8849**|14.3|baseline EVA fine-tune|
-|GeM pooling|GeM (`p=3.0`)|3|0.9147|0.0279|0.9210|0.0283|2.0668|18.0|same setup, pooling replaced|
+|variant|seeds|val mAP mean (std)|val mAP rerank mean (std) |
+|--|--:|--:|--:|
+|Default pooling|3|0.917 (0.018)|**0.922** (0.021) 
+|GeM pooling|3|0.915 (0.028)|0.921 (0.0289)|
 
 Seed-wise results:
 
