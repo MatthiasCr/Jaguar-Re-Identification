@@ -387,3 +387,60 @@ We run the same experiment for 10 seeds (`42` to `51`) and compare the best vali
 Across the 10 seeds, the mean reranked validation mAP is **0.9109 ± 0.0166**. The best run reaches **0.9381** (seed 43), while the weakest run reaches **0.8920** (seed 44). This spread is substantial and larger than many of the marginal effects observed in later experiments such as deterministic TTA.
 
 The conclusion is that **training seed has a meaningful impact on final retrieval performance in this setup**. Therefore, single-run comparisons should be interpreted carefully, and strong results should ideally be confirmed across multiple seeds or at least by repeating promising configurations.
+
+
+## Experiment 10 - Background Comparison
+
+| [Notebook](notebooks/10_background.ipynb) | 
+[Results CSV](checkpoints/e15_dataset_source_comparison/dataset_source_results.csv) | 
+No new Kaggle submission | 
+
+After discovering that the original `data` images still contain RGB values in transparent regions while `data_background` removes them, we wanted to test whether those hidden background pixels materially affect training and retrieval.
+
+### Setup
+
+We keep the model configuration fixed and compare two data sources:
+
+- **`data`**: original images, including RGB values hidden behind the alpha mask
+- **`data_background`**: same images, but hidden RGB values removed
+
+To make the comparison fair, the notebook:
+
+- uses the same EVA checkpoint configuration for both runs: `eva_unfrozen_rs_04_hlr1e-04_blr1e-05_wd1e-05_do0.2_aug1_bs16`
+- enforces a **shared validation split** across both sources
+- trains a **fresh model on each source**
+- runs a **2x2 cross-evaluation**:
+  - train on `data`, evaluate on `data`
+  - train on `data`, evaluate on `data_background`
+  - train on `data_background`, evaluate on `data`
+  - train on `data_background`, evaluate on `data_background`
+
+This isolates whether the background treatment changes the learned representation, rather than just changing the train/val split.
+
+### Results
+
+Training each source on its own version of the validation set gives:
+
+|train source|eval source|val mAP|val mAP rerank|
+|--|--|--:|--:|
+|`data`|`data`|0.8921|**0.9122**|
+|`data_background`|`data_background`|**0.8984**|0.9067|
+
+Cross-evaluation shows a stronger effect:
+
+|train source|eval source|val mAP|val mAP rerank|
+|--|--|--:|--:|
+|`data`|`data_background`|0.6021|0.6085|
+|`data_background`|`data`|0.8187|0.8309|
+
+### Interpretation
+
+The result is asymmetric:
+
+- The model trained on original `data` performs best on original `data`.
+- The model trained on `data_background` performs slightly better in plain mAP on its own source, but still trails the `data` model in reranked mAP on its own source.
+- When evaluated on the opposite source, both models degrade sharply, especially the model trained on `data` and evaluated on `data_background`.
+
+This suggests that the hidden RGB values are not just harmless noise. They appear to create a real domain shift that the model learns to rely on. Removing them changes the image distribution enough that embeddings no longer transfer cleanly between the two sources.
+
+The practical takeaway is that **background handling matters a lot in this project**. Any final training or submission pipeline should stick to one consistent image source and avoid mixing `data` and `data_background` without retraining.
