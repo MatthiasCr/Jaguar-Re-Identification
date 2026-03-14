@@ -253,6 +253,66 @@ We therefore treat this experiment mainly as a **sanity check**: it supports kee
 [W&B Run Group](https://wandb.ai/juggling-jaguars/jaguar-reid-jugglingjaguars/groups/Experiment-7-GeMPooling) | 
 Kaggle Submission: Score: 0.903 | 
 
+In this experiment we tested whether replacing the backbone's default global pooling with **GeM pooling** can improve jaguar re-identification. The motivation is that re-ID often depends on a few highly discriminative local fur patterns. GeM is more selective than plain average pooling and can emphasize strong local activations instead of smoothing them away too aggressively.
+
+### Setup
+
+We keep the full training recipe fixed and change only the pooling layer inside the backbone:
+
+- **Backbone:** `eva02_large_patch14_448.mim_m38m_ft_in22k_in1k`
+- **Training mode:** full backbone fine-tuning (`freeze_backbone=False`)
+- **Input size:** `448`
+- **Head:** ArcFace with `margin=0.5`, `scale=64`
+- **Embedding / hidden dim:** `256 / 512`
+- **Dropout:** `0.3`
+- **Batch size:** `32`
+- **Head learning rate:** `1e-4`
+- **Backbone learning rate:** `1e-5`
+- **Weight decay:** `1e-4`
+- **Train augmentation:** off
+- **Validation split:** `0.2`
+- **Reranking during validation:** `k1=20`, `k2=6`, `lambda=0.3`
+
+The two compared runs are:
+
+- **Default pooling**: standard backbone pooling as provided by the EVA model
+- **GeM pooling**: replace the default pooling with GeM using `p=3.0` and `eps=1e-6`
+
+So this is a very targeted architectural test: if GeM helps here, the gain should come from better spatial aggregation rather than from a different optimizer, schedule, augmentation policy, or backbone.
+
+### Results
+
+We repeated the comparison for three training seeds (`42`, `43`, `44`) to avoid over-interpreting a single lucky run.
+
+|variant|pooling|seeds|mean best val mAP|std|mean best val mAP rerank|std|mean best val loss|mean best epoch|notes|
+|--|--|--:|--:|--:|--:|--:|--:|--:|--|
+|Default pooling|default|3|0.9168|0.0177|**0.9215**|0.0208|**1.8849**|14.3|baseline EVA fine-tune|
+|GeM pooling|GeM (`p=3.0`)|3|0.9147|0.0279|0.9210|0.0283|2.0668|18.0|same setup, pooling replaced|
+
+Seed-wise results:
+
+|seed|default val mAP|GeM val mAP|delta GeM-default|default val mAP rerank|GeM val mAP rerank|delta GeM-default rerank|
+|--:|--:|--:|--:|--:|--:|--:|
+|42|0.9063|0.8964|-0.0099|0.9110|0.9055|-0.0055|
+|43|0.9372|0.9468|+0.0096|0.9454|0.9537|+0.0083|
+|44|0.9068|0.9008|-0.0060|0.9079|0.9039|-0.0040|
+
+Across the paired seeds, the mean GeM-minus-default difference is:
+
+- **`-0.0021`** in plain validation mAP
+- **`-0.0004`** in reranked validation mAP
+
+So GeM does not show a consistent improvement in this experiment. It helps on seed `43`, but loses on seeds `42` and `44`, and the average reranked result is effectively unchanged.
+
+### What We Wanted To Learn
+
+This experiment is mainly meant to answer two questions:
+
+- Does GeM improve retrieval quality over the default pooling for this EVA-based re-ID model?
+- If there is a gain, is it large enough to justify the added architectural complexity and to carry forward into later experiments?
+
+With the current seed sweep, the answer is: **not convincingly**. The GeM variant is competitive, but there is no reliable mean improvement over default pooling, so we do not treat GeM as a clearly better replacement in this setup.
+
 
 ## Experiment 8 - Test-Time Augmentation
 
