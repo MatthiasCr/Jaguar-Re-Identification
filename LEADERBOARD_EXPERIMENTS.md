@@ -169,3 +169,45 @@ For each TTA preset we extract embeddings for all views, average the embeddings,
 The differences are marginal. While `light` and `medium` slightly improve the plain validation mAP, none of the deterministic TTA presets improves the reranked validation mAP over the no-TTA baseline. In fact, the best reranked score is obtained with **no TTA at all** (`0.8930`), while the larger TTA presets are slightly worse.
 
 We therefore conclude that **deterministic crop-based TTA does not provide a meaningful benefit for this model in our setup**. Given the extra inference cost, we do not continue with TTA for leaderboard submissions.
+
+
+## Experiment 9 - Seed Comparison
+
+| [Notebook](notebooks/09_seed_comparison.ipynb) | 
+[W&B Run Group]() | 
+No new Kaggle submission | 
+
+After fixing the training recipe, we wanted to measure how much variance remains purely from the random seed. This is important because if seed-to-seed variance is large, then small differences between experimental tweaks can be misleading unless runs are repeated.
+
+### Setup
+
+We keep the full training configuration fixed and only vary the random seed. The compared model is the EVA unfrozen ArcFace setup with the following fixed hyperparameters:
+
+- head learning rate `1e-4`
+- backbone learning rate `1e-5`
+- weight decay `1e-5`
+- dropout `0.2`
+- training augmentation enabled
+- batch size `16`
+- reranking enabled with `k1=20`, `k2=6`, `lambda=0.3`
+
+We run the same experiment for 10 seeds (`42` to `51`) and compare the best validation metrics of each run.
+
+### Results
+
+|seed|best val mAP|best val mAP rerank|best val loss|best epoch|epochs trained|
+|--:|--:|--:|--:|--:|--:|
+|43|0.9308|0.9381|2.1995|15|23|
+|48|0.9246|0.9313|2.2370|10|18|
+|46|0.9249|0.9228|2.0425|17|25|
+|51|0.9176|0.9213|2.5083|10|18|
+|49|0.9116|0.9112|2.6716|22|25|
+|50|0.8978|0.9036|2.8094|17|25|
+|42|0.8989|0.8997|2.3413|18|25|
+|45|0.8985|0.8960|2.2614|18|25|
+|47|0.8880|0.8929|2.4787|9|17|
+|44|0.8866|0.8920|2.8812|21|25|
+
+Across the 10 seeds, the mean reranked validation mAP is **0.9109 ± 0.0166**. The best run reaches **0.9381** (seed 43), while the weakest run reaches **0.8920** (seed 44). This spread is substantial and larger than many of the marginal effects observed in later experiments such as deterministic TTA.
+
+The conclusion is that **training seed has a meaningful impact on final retrieval performance in this setup**. Therefore, single-run comparisons should be interpreted carefully, and strong results should ideally be confirmed across multiple seeds or at least by repeating promising configurations.
