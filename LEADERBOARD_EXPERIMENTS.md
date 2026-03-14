@@ -119,7 +119,7 @@ All other hyperparameters will be fixed for each run. All runs get a budget of 1
 ## Experiment 5 - Hyperparameter Search
 
 | [Notebook](notebooks/05_hyperparamter_search.ipynb) | 
-[W&B Run Group]() | 
+[W&B Run Group](https://wandb.ai/juggling-jaguars/jaguar-reid-jugglingjaguars/groups/Experiment-5-HyperparameterSearch) | 
 Kaggle Submission: Score: 0.912 | 
 
 In the last four experiments we already found setup (backbone, loss function, backbone freezing) that achieves good scores on kaggle (0.907). 
@@ -134,14 +134,14 @@ Kaggle Submission: Score: TODO |
 ## Experiment 7 - GeM Pooling
 
 | [Notebook](notebooks/07_gem_pooling.ipynb) | 
-[W&B Run Group]() | 
+[W&B Run Group](https://wandb.ai/juggling-jaguars/jaguar-reid-jugglingjaguars/groups/Experiment-7-GeMPooling) | 
 Kaggle Submission: Score: 0.903 | 
 
 
-## Experiment 8 - TTA Comparison
+## Experiment 8 - Test-Time Augmentation
 
 | [Notebook](notebooks/08_tta_comparison.ipynb) | 
-[W&B Run Group]() | 
+[W&B Run Group](https://wandb.ai/juggling-jaguars/jaguar-reid-jugglingjaguars/groups/Experiment-8-TestTimeAugmentation) | 
 No new Kaggle submission | 
 
 After establishing a strong EVA-02 fine-tuned baseline, we tested whether deterministic test-time augmentation can improve retrieval performance at inference time. The central question was simple: does TTA help our current model enough to justify the additional inference cost?
@@ -171,10 +171,10 @@ The differences are marginal. While `light` and `medium` slightly improve the pl
 We therefore conclude that **deterministic crop-based TTA does not provide a meaningful benefit for this model in our setup**. Given the extra inference cost, we do not continue with TTA for leaderboard submissions.
 
 
-## Experiment 9 - Seed Comparison
+## Experiment 9 - Random Seed Comparison
 
 | [Notebook](notebooks/09_seed_comparison.ipynb) | 
-[W&B Run Group]() | 
+[W&B Run Group](https://wandb.ai/juggling-jaguars/jaguar-reid-jugglingjaguars/groups/Experiment-9-RandomSeeds) | 
 No new Kaggle submission | 
 
 After fixing the training recipe, we wanted to measure how much variance remains purely from the random seed. This is important because if seed-to-seed variance is large, then small differences between experimental tweaks can be misleading unless runs are repeated.

@@ -35,8 +35,8 @@ All experiments were run on the HPI SCI cluster using an NVIDIA A100 40GB GPU.
 |05|Hyperparameter Sweep|Leaderboard|[Documentation](LEADERBOARD_EXPERIMENTS.md#experiment-5---hyperparameter-search)|[Notebook](notebooks/05_hyperparamter_search.ipynb)|[W&B Run Group](https://wandb.ai/juggling-jaguars/jaguar-reid-jugglingjaguars/groups/Experiment-5-HyperparameterSearch)|
 |06|K-Reciprocal Re-Ranking|Leaderboard||||
 |07|GeM Pooling|Leaderboard|[Documentation](LEADERBOARD_EXPERIMENTS.md#experiment-7---gem-pooling)|[Notebook](notebooks/07_gem_pooling.ipynb)|[W&B Run Group](https://wandb.ai/juggling-jaguars/jaguar-reid-jugglingjaguars/groups/Experiment-7-GeMPooling)|
-|08|Test-Time Agumentation|Leaderboard|||
-|09|Training Stability across different random seeds|EDA||||
+|08|Test-Time Agumentation|Leaderboard|[Documentation](LEADERBOARD_EXPERIMENTS.md#experiment-8---test-time-augmentation)|[Notebook](notebooks/08_tta_comparison.ipynb)|[W&B Run Group](https://wandb.ai/juggling-jaguars/jaguar-reid-jugglingjaguars/groups/Experiment-8-TestTimeAugmentation)|
+|09|Training Stability across different random seeds|EDA|[Documentation](LEADERBOARD_EXPERIMENTS.md#experiment-9---random-seed-comparison)|[Notebook](notebooks/09_seed_comparison.ipynb)|[W&B Run Group](https://wandb.ai/juggling-jaguars/jaguar-reid-jugglingjaguars/groups/Experiment-9-RandomSeeds)|
 |10|Background vs. no Background|EDA||||
 |11|Interpretability Visualization with LRP|EDA||||
 |12|Optimizer / Scheduler Comparison|EDA||||
