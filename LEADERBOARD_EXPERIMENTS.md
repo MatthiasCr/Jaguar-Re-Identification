@@ -160,7 +160,7 @@ We perform a random search over the following parameters:
 
 In total we trained 48 configurations and logged them to W&B. Below we report the strongest configurations.
 
-|W&B run id|head lr|backbone lr|weight decay|dropout|aug|batch|embed|hidden|best val mAP|best val mAP rerank|best val loss|best epoch|
+|W&B run id|head lr|back-bone lr|weight decay|drop-out|aug|batch|embed|hidden|best val mAP|best val mAP rerank|best val loss|best epoch|
 |--|--:|--:|--:|--:|--|--:|--:|--:|--:|--:|--:|--:|
 |[qriyulso](https://wandb.ai/juggling-jaguars/jaguar-reid-jugglingjaguars/groups/Experiment-5-HyperparameterSearch/runs/qriyulso)|1e-4|1e-5|1e-5|0.2|on|16|384|768|0.9170|**0.9365**|2.2664|18|
 |[qp8fg51n](https://wandb.ai/juggling-jaguars/jaguar-reid-jugglingjaguars/groups/Experiment-5-HyperparameterSearch/runs/qp8fg51n)|3e-4|3e-5|1e-4|0.3|off|16|256|512|**0.9355**|0.9336|2.4942|10|
