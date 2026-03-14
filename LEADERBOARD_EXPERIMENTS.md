@@ -144,7 +144,7 @@ For each sampled run we train a fresh model and select the best checkpoint by **
 
 We perform a random search over the following parameters:
 
-|parameter|tested values|
+|parameter|possible values|
 |--|--|
 |head learning rate|`3e-5`, `1e-4`, `3e-4`|
 |backbone learning rate|`3e-6`, `1e-5`, `3e-5`|
@@ -160,13 +160,13 @@ We perform a random search over the following parameters:
 
 In total we trained 50 configurations and logged them to W&B. Below we report the strongest configurations.
 
-|run|head lr|backbone lr|weight decay|dropout|aug|batch|embed|hidden|best val mAP|best val mAP rerank|best val loss|best epoch|
+|W&B run id|head lr|backbone lr|weight decay|dropout|aug|batch|embed|hidden|best val mAP|best val mAP rerank|best val loss|best epoch|
 |--|--:|--:|--:|--:|--|--:|--:|--:|--:|--:|--:|--:|
-|`eva_unfrozen_rs_04_hlr1e-04_blr1e-05_wd1e-05_do0.2_aug1_bs16`|1e-4|1e-5|1e-5|0.2|on|16|384|768|0.9170|**0.9365**|2.2664|18|
-|`eva_unfrozen_rs_08_hlr3e-04_blr3e-05_wd1e-04_do0.3_aug0_bs16`|3e-4|3e-5|1e-4|0.3|off|16|256|512|**0.9355**|0.9336|2.4942|10|
-|`eva_unfrozen_rs_08_hlr3e-05_blr3e-05_wd1e-04_do0.2_aug0_bs16`|3e-5|3e-5|1e-4|0.2|off|16|384|768|0.9095|0.9238|**1.8927**|21|
-|`eva_unfrozen_rs_01_hlr3e-04_blr1e-05_wd5e-04_do0.2_aug1_bs32`|3e-4|1e-5|5e-4|0.2|on|32|384|768|0.8989|0.9226|2.1571|8|
-|`eva_unfrozen_rs_02_hlr3e-05_blr1e-05_wd5e-04_do0.3_aug0_bs16`|3e-5|1e-5|5e-4|0.3|off|16|384|768|0.9127|0.9201|1.8237|25|
+|[qriyulso](https://wandb.ai/juggling-jaguars/jaguar-reid-jugglingjaguars/groups/Experiment-5-HyperparameterSearch/runs/qriyulso)|1e-4|1e-5|1e-5|0.2|on|16|384|768|0.9170|**0.9365**|2.2664|18|
+|[qp8fg51n](https://wandb.ai/juggling-jaguars/jaguar-reid-jugglingjaguars/groups/Experiment-5-HyperparameterSearch/runs/qp8fg51n)|3e-4|3e-5|1e-4|0.3|off|16|256|512|**0.9355**|0.9336|2.4942|10|
+|[k2pi28gh](https://wandb.ai/juggling-jaguars/jaguar-reid-jugglingjaguars/groups/Experiment-5-HyperparameterSearch/runs/k2pi28gh)|3e-5|3e-5|1e-4|0.2|off|16|384|768|0.9095|0.9238|**1.8927**|21|
+|[v67i2spa](https://wandb.ai/juggling-jaguars/jaguar-reid-jugglingjaguars/groups/Experiment-5-HyperparameterSearch/runs/v67i2spa)|3e-4|1e-5|5e-4|0.2|on|32|384|768|0.8989|0.9226|2.1571|8|
+|[b40hr4rt](https://wandb.ai/juggling-jaguars/jaguar-reid-jugglingjaguars/groups/Experiment-5-HyperparameterSearch/runs/b40hr4rt)|3e-5|1e-5|5e-4|0.3|off|16|384|768|0.9127|0.9201|1.8237|25|
 
 Several useful patterns emerge from the search:
 
@@ -176,9 +176,7 @@ Several useful patterns emerge from the search:
 - **Both augmentation settings can work.** The best reranked run uses augmentation, but several other top runs perform best without it.
 - **Reranked ranking and plain mAP do not always choose the same winner.** One run achieves the best plain validation mAP (`0.9355`) but is slightly behind the best reranked validation mAP (`0.9365`).
 
-The best run of the search is therefore:
-
-- **`eva_unfrozen_rs_04_hlr1e-04_blr1e-05_wd1e-05_do0.2_aug1_bs16`**
+The best run of the search is therefore: [qriyulso](https://wandb.ai/juggling-jaguars/jaguar-reid-jugglingjaguars/groups/Experiment-5-HyperparameterSearch/runs/qriyulso)
 - best validation mAP: **0.9170**
 - best validation rerank mAP: **0.9365**
 
