@@ -324,7 +324,7 @@ class ArcFaceModel(nn.Module):
         return F.normalize(embeddings, p=2, dim=1)
 
 
-def load_arcface_model_from_checkpoint(checkpoint_path, device, strict: bool = True):
+def load_arcface_model_from_checkpoint(checkpoint_path, device, strict: bool = True, use_gem=False):
     checkpoint_path = Path(checkpoint_path)
     checkpoint = torch.load(checkpoint_path, map_location=device, weights_only=False)
     checkpoint_config = checkpoint["config"]
@@ -344,6 +344,7 @@ def load_arcface_model_from_checkpoint(checkpoint_path, device, strict: bool = T
         pretrained=False,
         freeze_backbone=False,
         train_last_n_layers=0,
+        use_gem=use_gem
     ).to(device)
     model.load_state_dict(checkpoint["model_state_dict"], strict=strict)
     model.eval()

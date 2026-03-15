@@ -308,6 +308,7 @@ def fit(
     label_encoder=None,
     wandb_run=None,
     checkpoint_name="best_model.pth",
+    restore_best=True,
 ):
     history = {
         "train_loss": [],
@@ -325,6 +326,7 @@ def fit(
     best_checkpoint_metric = float("-inf")
     patience_counter = 0
     best_epoch = 0
+    best_state_dict = None
     rerank_config = get_rerank_config(config)
     best_checkpoint_metric_name = "val_map_rerank" if rerank_config["enabled"] else "val_map"
 
@@ -390,6 +392,8 @@ def fit(
             best_map_rerank = val_map_rerank
             best_epoch = epoch + 1
             patience_counter = 0
+            best_state_dict = {k: v.detach().cpu().clone() for k, v in model.state_dict().items()}
+
 
             checkpoint_path = config["checkpoint_dir"] / checkpoint_name
             torch.save(
@@ -425,6 +429,10 @@ def fit(
         f"({best_checkpoint_metric_name}: {best_checkpoint_metric:.4f}, "
         f"Val Loss: {best_val_loss:.4f}, Val mAP: {best_map:.4f})"
     )
+
+    if restore_best and best_state_dict is not None:
+        model.load_state_dict(best_state_dict)
+
 
     return {
         "history": history,
