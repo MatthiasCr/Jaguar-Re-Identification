@@ -8,13 +8,15 @@ import torch.nn.functional as F
 class ArcFaceClassifierForLRP(nn.Module):
     def __init__(self, arcface_model):
         super().__init__()
-        self.arcface_model = arcface_model
+        self.backbone = arcface_model.backbone
+        self.embedding_net = arcface_model.embedding_net
+        self.arcface_weight = arcface_model.arcface.weight
 
     def forward(self, images):
-        features = self.arcface_model.backbone(images)
-        embeddings = self.arcface_model.embedding_net(features)
+        features = self.backbone(images)
+        embeddings = self.embedding_net(features)
         normalized_embeddings = F.normalize(embeddings, p=2, dim=1)
-        normalized_weight = F.normalize(self.arcface_model.arcface.weight, p=2, dim=1)
+        normalized_weight = F.normalize(self.arcface_weight, p=2, dim=1)
         return F.linear(normalized_embeddings, normalized_weight)
 
 
