@@ -225,10 +225,9 @@ We wanted to test whether the default k-reciprocal reranking parameters were alr
 
 ### Setup
 
-We keep the model fixed and only tune reranking. The selected checkpoint comes from the hyperparameter search.
+We selected the best model from the hyperparameter search ([qriyulso](https://wandb.ai/juggling-jaguars/jaguar-reid-jugglingjaguars/groups/Experiment-5-HyperparameterSearch/runs/qriyulso)) and use it to compute the similarity matrix on the validation data once. Then we only tune the postprocessing on this matrix. The hyperparameters of the used model are:
 
-- **Checkpoint:** `eva_unfrozen_rs_08_hlr3e-05_blr3e-05_wd1e-04_do0.2_aug0_bs16`
-- **Backbone:** EVA-02 Large fine-tuned end-to-end
+- **Backbone:** EVA-02 Large (fine-tuned end-to-end)
 - **Head learning rate:** `3e-5`
 - **Backbone learning rate:** `3e-5`
 - **Weight decay:** `1e-4`
@@ -238,13 +237,13 @@ We keep the model fixed and only tune reranking. The selected checkpoint comes f
 - **Embedding / hidden dim:** `384 / 768`
 - **Best checkpoint epoch:** `21`
 
-We reconstruct the validation split for this checkpoint, extract the validation embeddings once, and then run a small grid search over reranking:
+We run a small grid search over the k-reciprocal re-ranking parameters:
 
 - **`k1`** in `{10, 15, 20, 25, 30, 35, 40}`
 - **`lambda_value`** in `{0.05, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6}`
 - **`k2`** fixed at `6`
 
-For each parameter pair we compute validation rerank mAP and compare it against both the no-rerank baseline and the checkpoint's default rerank setting.
+This leads to 49 runs in total. For each configuration we rerank the similarity matrix, compute the new validation mAP and compare it against both the no-rerank baseline and to the default rerank setting.
 
 ### Results
 
@@ -278,7 +277,7 @@ We therefore treat this experiment mainly as a **sanity check**: it supports kee
 
 During each hyperparameter search run we logged both plain validation mAP and reranked validation mAP in W&B. We use these results here only to understand whether reranking can change model ranking across runs; this is a different question from the main Experiment 6 sweep, which asks whether the default reranking parameters can be improved for one fixed checkpoint.
 
-If we compare each run only at its **best saved checkpoint**, `best_val_mAP_rerank - best_val_mAP` is on average **`+0.0026`**, and **30 of 48 runs** improve under reranking. Since these are best-checkpoint summaries from a search where reranking was already part of validation, they are informative about ranking shifts, but they should not be interpreted as a fully unbiased estimate of reranking gain.
+If we compare each run only at its best saved checkpoint, `best_val_mAP_rerank - best_val_mAP` is on average **`+0.0026`**, and **30 of 48 runs** improve under reranking. Since these are best-checkpoint summaries from a search where reranking was already part of validation, they are informative about ranking shifts, but they should not be interpreted as a fully unbiased estimate of reranking gain.
 
 The most important effect is the change in **model ranking**:
 
@@ -292,17 +291,17 @@ So the comparison in **W&B** supports two conclusions at once: first, reranking 
 
 | [Notebook](notebooks/07_gem_pooling.ipynb) | 
 [W&B Run Group](https://wandb.ai/juggling-jaguars/jaguar-reid-jugglingjaguars/groups/Experiment-7-GeMPooling) | 
-Kaggle Submission: Score: 0.903 | 
+Kaggle Submission Score: 0.903 | 
 
-In this experiment we tested whether replacing the backbone's default global pooling with **GeM pooling** can improve jaguar re-identification. The motivation is that re-ID often depends on a few highly discriminative local fur patterns. GeM is more selective than plain average pooling and can emphasize strong local activations instead of smoothing them away too aggressively.
+In this experiment we test whether replacing the backbone's default global pooling (mean pooling) with **generalizd mean pooling (GeM)** can improve jaguar re-identification. The motivation is that re-ID often depends on a few highly discriminative local fur patterns. GeM is more selective than plain mean pooling and can emphasize strong local activations instead of smoothing them away too aggressively.
+
+**Research question:** Does GeM pooling improve retrieval quality over the default pooling for this EVA-based re-ID model?
 
 ### Setup
 
 We keep the full training recipe fixed and change only the pooling layer inside the backbone:
 
-- **Backbone:** `eva02_large_patch14_448.mim_m38m_ft_in22k_in1k`
-- **Training mode:** full backbone fine-tuning (`freeze_backbone=False`)
-- **Input size:** `448`
+- **Backbone:** EVA-02 Large (full backbone fine-tuning)
 - **Head:** ArcFace with `margin=0.5`, `scale=64`
 - **Embedding / hidden dim:** `256 / 512`
 - **Dropout:** `0.3`
@@ -319,11 +318,9 @@ The two compared runs are:
 - **Default pooling**: standard backbone pooling as provided by the EVA model
 - **GeM pooling**: replace the default pooling with GeM using `p=3.0` and `eps=1e-6`
 
-So this is a very targeted architectural test: if GeM helps here, the gain should come from better spatial aggregation rather than from a different optimizer, schedule, augmentation policy, or backbone.
+This is a very targeted architectural test: if GeM helps here, the gain should come from better spatial aggregation rather than from a different optimizer, schedule, augmentation policy, or backbone. We train each version with three different training seeds (`42`, `43`, `44`) to avoid over-interpreting a single lucky run. Similar to the previous experiments we compute and report the validation mAP with and without reranking.
 
 ### Results
-
-We repeated the comparison for three training seeds (`42`, `43`, `44`) to avoid over-interpreting a single lucky run.
 
 |variant|seeds|val mAP mean (std)|val mAP rerank mean (std) |
 |--|--:|--:|--:|
@@ -343,16 +340,9 @@ Across the paired seeds, the mean GeM-minus-default difference is:
 - **`-0.0021`** in plain validation mAP
 - **`-0.0004`** in reranked validation mAP
 
-So GeM does not show a consistent improvement in this experiment. It helps on seed `43`, but loses on seeds `42` and `44`, and the average reranked result is effectively unchanged.
+So GeM does not show a consistent improvement in this experiment. It helps on seed `43`, but loses on seeds `42` and `44`, and the average reranked result is almost unchanged.
 
-### What We Wanted To Learn
-
-This experiment is mainly meant to answer two questions:
-
-- Does GeM improve retrieval quality over the default pooling for this EVA-based re-ID model?
-- If there is a gain, is it large enough to justify the added architectural complexity and to carry forward into later experiments?
-
-With the current seed sweep, the answer is: **not convincingly**. The GeM variant is competitive, but there is no reliable mean improvement over default pooling, so we do not treat GeM as a clearly better replacement in this setup.
+With the current seed sweep, the answer to the research question is: GeM pooling does **not convincingly** improve retrieval quality. The GeM variant is competitive, but there is no reliable mean improvement over default pooling, so we do not treat GeM as a clearly better replacement in this setup.
 
 
 ## Experiment 8 - Test-Time Augmentation
@@ -388,27 +378,27 @@ The differences are marginal. While `light` and `medium` slightly improve the pl
 We therefore conclude that **deterministic crop-based TTA does not provide a meaningful benefit for this model in our setup**. Given the extra inference cost, we do not continue with TTA for leaderboard submissions.
 
 
-## Experiment 10 - Background Comparison
+## Experiment 10 - Background vs. no Background
 
 | [Notebook](notebooks/10_background.ipynb) | 
 [W&B Run Group](https://wandb.ai/juggling-jaguars/jaguar-reid-jugglingjaguars/groups/Experiment-10-Background/) |
-[Results CSV](checkpoints/e15_dataset_source_comparison/dataset_source_results.csv) | 
-No new Kaggle submission | 
 
-After discovering that the original `data` images still contain RGB values in transparent regions while `data_background` removes them, we wanted to test whether training on images **with background information** or **without background information** materially affects training and retrieval.
+In all previous experiments we always used the full images with background information and just ignored the alpha mask. In this experiment we use the dataset of the **Kaggle competition round 2** which does not include background information at all. We train our best model on both datasets and compare its performance.
+
+**Research question:** Does our currently best model's performance (mAP) change when it is trained and evaluated on data without background? How does a model trained on data with background performs when applied on data without background and otherwise?
 
 ### Setup
 
 We keep the model configuration fixed and compare two data sources:
 
-- **`data_with_background`** (folder: `data`): original images, including RGB values hidden behind the alpha mask
-- **`data_without_background`** (folder: `data_background`): same images, but hidden RGB values removed
+- **`data_with_background`**: original images, including RGB values hidden behind the alpha mask
+- **`data_without_background`**: same images, but hidden RGB values removed
 
-To make the comparison fair, the notebook:
+To make the comparison fair both runs:
 
-- uses the same EVA checkpoint configuration for both runs: `eva_unfrozen_rs_04_hlr1e-04_blr1e-05_wd1e-05_do0.2_aug1_bs16`
-- enforces a **shared validation split** across both sources
-- trains a **fresh model on each source**
+- use the same model and training hyperparameters
+- enforces a shared validation split across both datasets (so the same images appear in train/val  respecively)
+- trains a fresh model on each dataset
 - runs a **2x2 cross-evaluation**:
   - train on `data_with_background`, evaluate on `data_with_background`
   - train on `data_with_background`, evaluate on `data_without_background`
@@ -421,26 +411,24 @@ This isolates whether the background treatment changes the learned representatio
 
 Training each source on its own version of the validation set gives:
 
-|train source|eval source|val mAP|val mAP rerank|
-|--|--|--:|--:|
-|`data_with_background`|`data_with_background`|0.8921|**0.9122**|
-|`data_without_background`|`data_without_background`|**0.8984**|0.9067|
+|train data|eval data|val mAP|val mAP rerank|kaggle public score|
+|--|--|--:|--:|--:|
+|with background|with background|0.8921|**0.9122**|0.912|
+|without background|without background|**0.8984**|0.9067|0.899|
 
 Cross-evaluation shows a stronger effect:
 
-|train source|eval source|val mAP|val mAP rerank|
+|train data|eval data|val mAP|val mAP rerank|
 |--|--|--:|--:|
-|`data_with_background`|`data_without_background`|0.6021|0.6085|
-|`data_without_background`|`data_with_background`|0.8187|0.8309|
-
-### Interpretation
+|with background|without background|0.6021|0.6085|
+|without background|with background|0.8187|0.8309|
 
 The result is asymmetric:
 
 - The model trained on `data_with_background` performs best on `data_with_background`.
 - The model trained on `data_without_background` performs slightly better in plain mAP on its own source, but still trails the `data_with_background` model in reranked mAP on its own source.
-- When evaluated on the opposite source, both models degrade sharply, especially the model trained on `data_with_background` and evaluated on `data_without_background`.
+- When evaluated on the opposite dataset, both models degrade significantly, especially the model trained on `data_with_background` and evaluated on `data_without_background`.
 
 This suggests that the hidden RGB values are not just harmless noise. They appear to create a real domain shift that the model learns to rely on, so moving from `data_with_background` to `data_without_background` changes the image distribution enough that embeddings no longer transfer cleanly between the two sources.
 
-The practical takeaway is that **background handling matters a lot in this project**. Any final training or submission pipeline should stick to one consistent image source and avoid mixing `data_with_background` (`data`) and `data_without_background` (`data_background`) without retraining.
+The practical takeaway is that background handling matters a lot in this project. Any final training or submission pipeline should stick to one consistent image source and avoid mixing `data_with_background` (`data`) and `data_without_background` (`data_background`) without retraining.
