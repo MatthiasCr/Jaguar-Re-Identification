@@ -215,7 +215,7 @@ The W&B parameter importance analysis broadly supports these observations: among
 
 The best run of the search is therefore [qriyulso](https://wandb.ai/juggling-jaguars/jaguar-reid-jugglingjaguars/groups/Experiment-5-HyperparameterSearch/runs/qriyulso) with a best validation mAP of **0.917** and a best reranked validation mAP of **0.937**. This run's configuration is different to the default configuration that we used in previous experiments (this one has a lower dropout, higher embedding and hidden dim and smaller batch size). This run therefore becomes the new default checkpoint for later experiments. We used it for a Kaggle submission (with reranking) which improved the Kaggle public score from `0.907` to `0.912`.
 
-## Experiment 6 - K-Reciprocal Re-Ranking
+## Experiment 6a - K-Reciprocal Re-Ranking Parameter Sweep
 
 | [Notebook](notebooks/06_k_reciprocal_re_ranking.ipynb) | 
 [W&B Project](https://wandb.ai/juggling-jaguars/jaguar-reid-jugglingjaguars/groups/Experiment-6-KReciprocalReRanking) | 
@@ -227,7 +227,7 @@ We wanted to test whether the default k-reciprocal reranking parameters were alr
 
 We keep the model fixed and only tune reranking. The selected checkpoint comes from the hyperparameter search.
 
-- **Checkpoint:** `eva_unfrozen_rs_08_hlr3e-05_blr3e-05_wd1e-04_do0.2_aug0_bs16`
+- **Checkpoint:** [k2pi28gh](https://wandb.ai/juggling-jaguars/jaguar-reid-jugglingjaguars/groups/Experiment-5-HyperparameterSearch/runs/k2pi28gh)
 - **Backbone:** EVA-02 Large fine-tuned end-to-end
 - **Head learning rate:** `3e-5`
 - **Backbone learning rate:** `3e-5`
@@ -250,9 +250,9 @@ For each parameter pair we compute validation rerank mAP and compare it against 
 
 |setting|val mAP rerank|
 |--|--:|
-|no reranking|0.9095|
-|default rerank (`k1=20`, `k2=6`, `lambda=0.3`)|**0.9237**|
-|best grid-search result|**0.9237**|
+|no reranking|0.910|
+|default rerank (`k1=20`, `k2=6`, `lambda=0.3`)|**0.924**|
+|best grid-search result|**0.924**|
 
 The validation sweep did **not** improve on the default reranking setup. The best searched configuration was again:
 
@@ -262,8 +262,8 @@ The validation sweep did **not** improve on the default reranking setup. The bes
 
 This means the tuned search gained:
 
-- **`+0.0142`** over no reranking
-- **`+0.0000`** over the default reranking parameters
+- **`+0.014`** over no reranking
+- **`+0.000`** over the default reranking parameters
 
 So the practical conclusion is modest but useful: **for this checkpoint and this validation split, the existing rerank defaults were already as good as the tested alternatives**.
 
@@ -274,17 +274,17 @@ This result is based on **one specific checkpoint** and **one validation split**
 We therefore treat this experiment mainly as a **sanity check**: it supports keeping the standard rerank parameters for later experiments, but it does **not** prove that reranking can no longer be improved in general.
 
 
-### Reranking results during Hyperparameter search
+## Experiment 6b - Reranking Effects During Hyperparameter Search
 
 During each hyperparameter search run we logged both plain validation mAP and reranked validation mAP in W&B. We use these results here only to understand whether reranking can change model ranking across runs; this is a different question from the main Experiment 6 sweep, which asks whether the default reranking parameters can be improved for one fixed checkpoint.
 
-If we compare each run only at its **best saved checkpoint**, `best_val_mAP_rerank - best_val_mAP` is on average **`+0.0026`**, and **30 of 48 runs** improve under reranking. Since these are best-checkpoint summaries from a search where reranking was already part of validation, they are informative about ranking shifts, but they should not be interpreted as a fully unbiased estimate of reranking gain.
+If we compare each run only at its **best saved checkpoint**, `best_val_mAP_rerank - best_val_mAP` is on average **`+0.003`**, and **30 of 48 runs** improve under reranking. Since these are best-checkpoint summaries from a search where reranking was already part of validation, they are informative about ranking shifts, but they should not be interpreted as a fully unbiased estimate of reranking gain.
 
 The most important effect is the change in **model ranking**:
 
-- The best run by plain validation mAP is `eva_unfrozen_rs_08_hlr3e-04_blr3e-05_wd1e-04_do0.3_aug0_bs16` with **`best_val_mAP = 0.9355`**, but its reranked score is slightly lower at **`0.9336`**.
-- The best run by reranked validation mAP is `eva_unfrozen_rs_04_hlr1e-04_blr1e-05_wd1e-05_do0.2_aug1_bs16` with **`best_val_mAP_rerank = 0.9365`**, even though its plain best mAP is only **`0.9170`**.
-- The checkpoint used in the Experiment 6 sanity check, `eva_unfrozen_rs_08_hlr3e-05_blr3e-05_wd1e-04_do0.2_aug0_bs16`, is a good example of a run that benefits meaningfully from reranking: **`0.9095 -> 0.9238`** at the best checkpoint.
+- The best run by plain validation mAP is [qp8fg51n](https://wandb.ai/juggling-jaguars/jaguar-reid-jugglingjaguars/groups/Experiment-5-HyperparameterSearch/runs/qp8fg51n) with **`best_val_mAP = 0.936`**, but its reranked score is slightly lower at **`0.934`**.
+- The best run by reranked validation mAP is [qriyulso](https://wandb.ai/juggling-jaguars/jaguar-reid-jugglingjaguars/groups/Experiment-5-HyperparameterSearch/runs/qriyulso) with **`best_val_mAP_rerank = 0.937`**, even though its plain best mAP is only **`0.917`**.
+- The checkpoint used in the Experiment 6 sanity check is [k2pi28gh](https://wandb.ai/juggling-jaguars/jaguar-reid-jugglingjaguars/groups/Experiment-5-HyperparameterSearch/runs/k2pi28gh), a good example of a run that benefits meaningfully from reranking: **`0.910 -> 0.924`** at the best checkpoint.
 
 So the comparison in **W&B** supports two conclusions at once: first, reranking can matter enough to change which hyperparameter setting looks best; second, that does **not** contradict the main Experiment 6 result, because the sweep there only shows that for one rerank-friendly checkpoint the standard parameter choice (`k1=20`, `k2=6`, `lambda=0.3`) was already very hard to beat.
 
