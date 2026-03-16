@@ -423,22 +423,22 @@ Training each source on its own version of the validation set gives:
 
 |train source|eval source|val mAP|val mAP rerank|
 |--|--|--:|--:|
-|`data_with_background`|`data_with_background`|0.8921|**0.9122**|
-|`data_without_background`|`data_without_background`|**0.8984**|0.9067|
+|`data_with_background`|`data_with_background`|**0.9070**|**0.9095**|
+|`data_without_background`|`data_without_background`|0.8845|0.9010|
 
 Cross-evaluation shows a stronger effect:
 
 |train source|eval source|val mAP|val mAP rerank|
 |--|--|--:|--:|
-|`data_with_background`|`data_without_background`|0.6021|0.6085|
-|`data_without_background`|`data_with_background`|0.8187|0.8309|
+|`data_with_background`|`data_without_background`|0.6314|0.6486|
+|`data_without_background`|`data_with_background`|0.8311|0.8470|
 
 ### Interpretation
 
 The result is asymmetric:
 
 - The model trained on `data_with_background` performs best on `data_with_background`.
-- The model trained on `data_without_background` performs slightly better in plain mAP on its own source, but still trails the `data_with_background` model in reranked mAP on its own source.
+- The model trained on `data_without_background` is weaker on its own source than the `data_with_background` model is on its own source, in both plain mAP and reranked mAP.
 - When evaluated on the opposite source, both models degrade sharply, especially the model trained on `data_with_background` and evaluated on `data_without_background`.
 
 This suggests that the hidden RGB values are not just harmless noise. They appear to create a real domain shift that the model learns to rely on, so moving from `data_with_background` to `data_without_background` changes the image distribution enough that embeddings no longer transfer cleanly between the two sources.
