@@ -350,13 +350,13 @@ With the current seed sweep, the answer to the research question is: GeM pooling
 
 | [Notebook](notebooks/08_test_time_augmentation.ipynb) | 
 [W&B Run Group](https://wandb.ai/juggling-jaguars/jaguar-reid-jugglingjaguars/groups/Experiment-8-TestTimeAugmentation) | 
-No new Kaggle submission | 
+No new Kaggle submission (no validation improvement) | 
 
 After establishing a strong EVA-02 fine-tuned baseline, we tested whether deterministic test-time augmentation can improve retrieval performance at inference time. The central question was simple: does TTA help our current model enough to justify the additional inference cost?
 
 ### Setup
 
-We keep the model fixed and only change inference-time augmentation. The evaluated checkpoint is `EVA02_Large_finetune.pth` (`eva02_finetune_seed42`). We compare four deterministic TTA presets:
+We keep the model fixed and only change inference-time augmentation. We do not train a new model but load a checkpoint from a run from [experiment 9](EDA_EXPERIMENTS.md#experiment-9---random-seed-comparison) (run ID: [ej9qc2v3](https://wandb.ai/juggling-jaguars/jaguar-reid-jugglingjaguars/runs/ej9qc2v3)). We compare four deterministic TTA presets:
 
 - **none** - only the default resized image
 - **light** - base view plus a centered 95% crop
