@@ -39,4 +39,4 @@ All experiments were run on the HPI SCI cluster using an NVIDIA A100 40GB GPU.
 |09|Training Stability across different random seeds|EDA|[Documentation](EDA_EXPERIMENTS.md#experiment-9---random-seed-comparison)|[Notebook](notebooks/09_seed_comparison.ipynb)|[W&B Run Group](https://wandb.ai/juggling-jaguars/jaguar-reid-jugglingjaguars/groups/Experiment-9-RandomSeeds)|1|
 |10|Background vs. no Background|EDA|[Documentation](LEADERBOARD_EXPERIMENTS.md#experiment-10---background-comparison)|[Notebook](notebooks/10_background.ipynb)|[Results CSV](checkpoints/e15_dataset_source_comparison/dataset_source_results.csv)|1|
 |11|Interpretability Visualization with Integrated Gradients|EDA|[Documentation](EDA_EXPERIMENTS.md#experiment-11---interpretability-with-integrated-gradients)|[Notebook](notebooks/11_interpretability.ipynb)||1|
-|**Summe**||||||**13**|
+|**Total**||||||**13**|
