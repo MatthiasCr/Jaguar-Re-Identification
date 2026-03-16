@@ -50,3 +50,60 @@ Especially Oxum and Madalena benefit from the weighted sampling while Bororo dec
 ### Conclusion
 
 Weighted sampling does improve average precision for some identites, but can have the opposite effect if the data is low quality. This makes the overall mAP improvement in our dataset extremely small (+ 0.001). For better results it would be important to focus on data quality.
+
+
+## Experiment 9 - Random Seed Comparison
+
+| [Notebook](notebooks/09_seed_comparison.ipynb) |
+[W&B Run Group](https://wandb.ai/juggling-jaguars/jaguar-reid-jugglingjaguars/groups/Experiment-9-RandomSeeds) |
+No new Kaggle submission |
+
+After fixing the training parameters, we wanted to measure how much variance remains purely from the random seed. This is important because if seed-to-seed variance is large, then small differences between experimental tweaks can be misleading unless runs are repeated.
+
+### Setup
+
+We keep the full training configuration fixed and only vary the random seed. The compared model is the EVA unfrozen ArcFace setup with the following fixed hyperparameters:
+
+- head learning rate `1e-4`
+- backbone learning rate `1e-5`
+- weight decay `1e-5`
+- dropout `0.2`
+- training augmentation enabled
+- batch size `16`
+- reranking enabled with `k1=20`, `k2=6`, `lambda=0.3`
+
+We run the same experiment for 10 seeds (`42` to `51`) and compare the best validation metrics of each run.
+
+### Results
+
+|seed|best val mAP|best val mAP rerank|best val loss|best epoch|epochs trained|
+|--:|--:|--:|--:|--:|--:|
+|43|0.9308|0.9381|2.1995|15|23|
+|48|0.9246|0.9313|2.2370|10|18|
+|46|0.9249|0.9228|2.0425|17|25|
+|51|0.9176|0.9213|2.5083|10|18|
+|49|0.9116|0.9112|2.6716|22|25|
+|50|0.8978|0.9036|2.8094|17|25|
+|42|0.8989|0.8997|2.3413|18|25|
+|45|0.8985|0.8960|2.2614|18|25|
+|47|0.8880|0.8929|2.4787|9|17|
+|44|0.8866|0.8920|2.8812|21|25|
+
+Across the 10 seeds, the mean reranked validation mAP is **0.9109 +- 0.0166**. The best run reaches **0.9381** (seed 43), while the weakest run reaches **0.8920** (seed 44). This spread is substantial and larger than many of the marginal effects observed in later experiments such as deterministic TTA.
+
+The conclusion is that **training seed has a meaningful impact on final retrieval performance in this setup**. Therefore, single-run comparisons should be interpreted carefully, and strong results should ideally be confirmed across multiple seeds or at least by repeating promising configurations.
+
+
+## Experiment 11 - Interpretability with Integrated Gradients
+
+| [Notebook](notebooks/11_interpretability.ipynb) |
+[Results Directory](interpretability_results/11_interpretability) |
+
+This experiment focuses on understanding which image regions drive the model's identity predictions. The notebook trains or loads an end-to-end ArcFace model with an unfrozen EfficientNetB3 backbone and then uses **Integrated Gradients** from Captum to visualize attribution heatmaps on validation images.
+
+The notebook also includes two additional sanity checks:
+
+- a randomized-weights check to verify that the attribution maps lose structure when the trained weights are destroyed
+- a masking-based faithfulness test that measures how much embedding similarity drops when the most relevant pixels are removed
+
+The generated figures and CSV outputs are written to `interpretability_results/11_interpretability`.

@@ -6,6 +6,7 @@ test.csv
 train.csv
 sample_submission.csv
 data/*
+data_background/*
 */wandb/*
 .env
 .zip

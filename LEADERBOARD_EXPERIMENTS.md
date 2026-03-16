@@ -19,9 +19,9 @@ We will compare 5 backbone models, among them traditional and modern CNNs, mediu
 **Research Questions:**
 Which architecture returns the best mAP? How do parameter-efficient CNNs perform in comparison to large vision transfomers?
 
-The initial embeddings created by the backbones will get projected to 256 dimensional embeddings using two linear layers, followed by an ArcFace Loss layer. The backbone itself will not be trained. For the image preprocessing transforms we resize the images to whichever input size the backbone requires. After that we will apply a normalization transform using the mean and std that is provided by the backbone. We will not use any random augmentations.
+The initial embeddings created by the backbones will get projected to 256 dimensional embeddings using two linear layers, followed by an ArcFace Loss layer. The backbone itself will not be trained in this experiment. For the image preprocessing transformations, we resize the images to whichever input size the backbone requires. After that we apply a normalization transform using the mean and std that is provided by the backbone. We do not use any random augmentations.
 
-All other hyperparameters and the training procedure will be identical for all runs. We use a batch size of 32, dropout of 0.3, AdamW as optimizer, and ReduceLROnPlateau as scheduler. We will train 100 epochs with a patience of 10 epochs, that means if for 10 consecutive epochs we can not beat the currently best validation loss we will stop training early. In the result table below we report how many epochs each model trained. After training we always restore the best checkpoint (by validation loss) to compute metrics and create the kaggle submission.
+All other hyperparameters and the training procedure are identical for all runs. We use a batch size of 32, dropout of 0.3, AdamW as optimizer, and ReduceLROnPlateau as scheduler. We train 100 epochs with a patience of 10 epochs, that means if for 10 consecutive epochs we can not beat the currently best validation loss we stop training early. In the result table below we report how many epochs each model trained. After training we always restore the best checkpoint (by validation loss) to compute metrics and create the kaggle submission.
 
 ### Results
 
@@ -243,15 +243,23 @@ This means the tuned search gained:
 
 So the practical conclusion is modest but useful: **for this checkpoint and this validation split, the existing rerank defaults were already as good as the tested alternatives**.
 
+### Comparison To `hyper_results.csv`
+
+The full hyperparameter search results in `hyper_results.csv` show that **plain validation mAP** and **reranked validation mAP** do not rank models in the same way. This is important context for interpreting Experiment 6, because reranking is not just a small uniform post-processing gain added to every run.
+
+If we compare each run only at its **best saved checkpoint**, `best_val_mAP_rerank - best_val_mAP` is on average **`+0.0026`**, and **30 of 48 runs** improve under reranking.
+
+The most important effect is the change in **model ranking**:
+
+- The best run by plain validation mAP is `eva_unfrozen_rs_08_hlr3e-04_blr3e-05_wd1e-04_do0.3_aug0_bs16` with **`best_val_mAP = 0.9355`**, but its reranked score is slightly lower at **`0.9336`**.
+- The best run by reranked validation mAP is `eva_unfrozen_rs_04_hlr1e-04_blr1e-05_wd1e-05_do0.2_aug1_bs16` with **`best_val_mAP_rerank = 0.9365`**, even though its plain best mAP is only **`0.9170`**.
+- The checkpoint used in this reranking sanity check, `eva_unfrozen_rs_08_hlr3e-05_blr3e-05_wd1e-04_do0.2_aug0_bs16`, is a good example of a run that benefits meaningfully from reranking: **`0.9095 -> 0.9238`** at the best checkpoint.
+
+So the comparison in `hyper_results.csv` supports two conclusions at once: first, reranking can matter enough to change which hyperparameter setting looks best; second, once a rerank-friendly checkpoint is chosen, the standard parameter choice (`k1=20`, `k2=6`, `lambda=0.3`) was already very hard to beat in Experiment 6.
+
 ### Limitations
 
-This experiment has several important limitations, so the result should be interpreted carefully:
-
-- It uses **one specific checkpoint**, not all strong models. In particular, the selected model comes from the available `incomplete_random_search_results.csv` snapshot and is **not the final strongest reranked model from Experiment 5**.
-- The chosen checkpoint was already evaluated and selected with the **same default reranking parameters** (`k1=20`, `k2=6`, `lambda=0.3`) on the same validation setup. That biases the search toward rediscovering the defaults.
-- The observed optimum depends on the **training configuration** of this checkpoint. Learning rates, dropout, augmentation, head width, and the resulting embedding geometry can all change which reranking parameters work best.
-- We only tune **`k1` and `lambda_value`**, while **`k2` stays fixed at `6`**. A broader search might still find different trade-offs.
-- The sweep is done on a **single validation split**, so it tells us that the defaults are robust for this split, but not that they are universally optimal for every model or for Kaggle test performance.
+This result is based on **one specific checkpoint** and **one validation split**, so it should be interpreted as a targeted sanity check rather than a universal statement about reranking. In addition, the evaluated checkpoint was already selected with the same default reranking parameters (`k1=20`, `k2=6`, `lambda=0.3`), which biases the sweep toward rediscovering those defaults.
 
 We therefore treat this experiment mainly as a **sanity check**: it supports keeping the standard rerank parameters for later experiments, but it does **not** prove that reranking can no longer be improved in general.
 
@@ -356,62 +364,20 @@ The differences are marginal. While `light` and `medium` slightly improve the pl
 We therefore conclude that **deterministic crop-based TTA does not provide a meaningful benefit for this model in our setup**. Given the extra inference cost, we do not continue with TTA for leaderboard submissions.
 
 
-## Experiment 9 - Random Seed Comparison
-
-| [Notebook](notebooks/09_seed_comparison.ipynb) | 
-[W&B Run Group](https://wandb.ai/juggling-jaguars/jaguar-reid-jugglingjaguars/groups/Experiment-9-RandomSeeds) | 
-No new Kaggle submission | 
-
-After fixing the training parameters, we wanted to measure how much variance remains purely from the random seed. This is important because if seed-to-seed variance is large, then small differences between experimental tweaks can be misleading unless runs are repeated.
-
-### Setup
-
-We keep the full training configuration fixed and only vary the random seed. The compared model is the EVA unfrozen ArcFace setup with the following fixed hyperparameters:
-
-- head learning rate `1e-4`
-- backbone learning rate `1e-5`
-- weight decay `1e-5`
-- dropout `0.2`
-- training augmentation enabled
-- batch size `16`
-- reranking enabled with `k1=20`, `k2=6`, `lambda=0.3`
-
-We run the same experiment for 10 seeds (`42` to `51`) and compare the best validation metrics of each run.
-
-### Results
-
-|seed|best val mAP|best val mAP rerank|best val loss|best epoch|epochs trained|
-|--:|--:|--:|--:|--:|--:|
-|43|0.9308|0.9381|2.1995|15|23|
-|48|0.9246|0.9313|2.2370|10|18|
-|46|0.9249|0.9228|2.0425|17|25|
-|51|0.9176|0.9213|2.5083|10|18|
-|49|0.9116|0.9112|2.6716|22|25|
-|50|0.8978|0.9036|2.8094|17|25|
-|42|0.8989|0.8997|2.3413|18|25|
-|45|0.8985|0.8960|2.2614|18|25|
-|47|0.8880|0.8929|2.4787|9|17|
-|44|0.8866|0.8920|2.8812|21|25|
-
-Across the 10 seeds, the mean reranked validation mAP is **0.9109 ± 0.0166**. The best run reaches **0.9381** (seed 43), while the weakest run reaches **0.8920** (seed 44). This spread is substantial and larger than many of the marginal effects observed in later experiments such as deterministic TTA.
-
-The conclusion is that **training seed has a meaningful impact on final retrieval performance in this setup**. Therefore, single-run comparisons should be interpreted carefully, and strong results should ideally be confirmed across multiple seeds or at least by repeating promising configurations.
-
-
 ## Experiment 10 - Background Comparison
 
 | [Notebook](notebooks/10_background.ipynb) | 
 [Results CSV](checkpoints/e15_dataset_source_comparison/dataset_source_results.csv) | 
 No new Kaggle submission | 
 
-After discovering that the original `data` images still contain RGB values in transparent regions while `data_background` removes them, we wanted to test whether those hidden background pixels materially affect training and retrieval.
+After discovering that the original `data` images still contain RGB values in transparent regions while `data_background` removes them, we wanted to test whether training on images **with background information** or **without background information** materially affects training and retrieval.
 
 ### Setup
 
 We keep the model configuration fixed and compare two data sources:
 
-- **`data`**: original images, including RGB values hidden behind the alpha mask
-- **`data_background`**: same images, but hidden RGB values removed
+- **`data_with_background`** (folder: `data`): original images, including RGB values hidden behind the alpha mask
+- **`data_without_background`** (folder: `data_background`): same images, but hidden RGB values removed
 
 To make the comparison fair, the notebook:
 
@@ -419,10 +385,10 @@ To make the comparison fair, the notebook:
 - enforces a **shared validation split** across both sources
 - trains a **fresh model on each source**
 - runs a **2x2 cross-evaluation**:
-  - train on `data`, evaluate on `data`
-  - train on `data`, evaluate on `data_background`
-  - train on `data_background`, evaluate on `data`
-  - train on `data_background`, evaluate on `data_background`
+  - train on `data_with_background`, evaluate on `data_with_background`
+  - train on `data_with_background`, evaluate on `data_without_background`
+  - train on `data_without_background`, evaluate on `data_with_background`
+  - train on `data_without_background`, evaluate on `data_without_background`
 
 This isolates whether the background treatment changes the learned representation, rather than just changing the train/val split.
 
@@ -432,24 +398,24 @@ Training each source on its own version of the validation set gives:
 
 |train source|eval source|val mAP|val mAP rerank|
 |--|--|--:|--:|
-|`data`|`data`|0.8921|**0.9122**|
-|`data_background`|`data_background`|**0.8984**|0.9067|
+|`data_with_background`|`data_with_background`|0.8921|**0.9122**|
+|`data_without_background`|`data_without_background`|**0.8984**|0.9067|
 
 Cross-evaluation shows a stronger effect:
 
 |train source|eval source|val mAP|val mAP rerank|
 |--|--|--:|--:|
-|`data`|`data_background`|0.6021|0.6085|
-|`data_background`|`data`|0.8187|0.8309|
+|`data_with_background`|`data_without_background`|0.6021|0.6085|
+|`data_without_background`|`data_with_background`|0.8187|0.8309|
 
 ### Interpretation
 
 The result is asymmetric:
 
-- The model trained on original `data` performs best on original `data`.
-- The model trained on `data_background` performs slightly better in plain mAP on its own source, but still trails the `data` model in reranked mAP on its own source.
-- When evaluated on the opposite source, both models degrade sharply, especially the model trained on `data` and evaluated on `data_background`.
+- The model trained on `data_with_background` performs best on `data_with_background`.
+- The model trained on `data_without_background` performs slightly better in plain mAP on its own source, but still trails the `data_with_background` model in reranked mAP on its own source.
+- When evaluated on the opposite source, both models degrade sharply, especially the model trained on `data_with_background` and evaluated on `data_without_background`.
 
-This suggests that the hidden RGB values are not just harmless noise. They appear to create a real domain shift that the model learns to rely on. Removing them changes the image distribution enough that embeddings no longer transfer cleanly between the two sources.
+This suggests that the hidden RGB values are not just harmless noise. They appear to create a real domain shift that the model learns to rely on, so moving from `data_with_background` to `data_without_background` changes the image distribution enough that embeddings no longer transfer cleanly between the two sources.
 
-The practical takeaway is that **background handling matters a lot in this project**. Any final training or submission pipeline should stick to one consistent image source and avoid mixing `data` and `data_background` without retraining.
+The practical takeaway is that **background handling matters a lot in this project**. Any final training or submission pipeline should stick to one consistent image source and avoid mixing `data_with_background` (`data`) and `data_without_background` (`data_background`) without retraining.
