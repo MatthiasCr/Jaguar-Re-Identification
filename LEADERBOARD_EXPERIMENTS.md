@@ -191,6 +191,10 @@ In the table below we report the strongest configurations:
 
 In W&B we analyzed the parameter importance with respect to the best validation mAP:
 
+<table>
+<tr>
+<td>
+
 |parameter|importance|correlation|
 |--|--|--|
 |head learning rate|0.261|-0.179|
@@ -202,6 +206,14 @@ In W&B we analyzed the parameter importance with respect to the best validation 
 |embedding dimension|0.076|0.142|
 |batch size|0.055|-0.328|
 
+</td>
+<td>
+  
+![Example Image](images/e5_parameter_importance.png)
+
+</td>
+</tr>
+</table>
 
 Several useful patterns emerge from the search:
 
