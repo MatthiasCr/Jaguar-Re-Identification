@@ -218,7 +218,7 @@ The best run of the search is therefore [qriyulso](https://wandb.ai/juggling-jag
 ## Experiment 6 - K-Reciprocal Re-Ranking
 
 | [Notebook](notebooks/06_k_reciprocal_re_ranking.ipynb) | 
-[W&B Project](https://wandb.ai/juggling-jaguars/jaguar-reid-jugglingjaguars) | 
+[W&B Project](https://wandb.ai/juggling-jaguars/jaguar-reid-jugglingjaguars/groups/Experiment-6-KReciprocalReRanking) | 
 No new Kaggle submission | 
 
 We wanted to test whether the default k-reciprocal reranking parameters were already good enough for our current validation setup, or whether a small validation-only sweep over `k1` and `lambda_value` could still improve retrieval.
@@ -267,9 +267,9 @@ This means the tuned search gained:
 
 So the practical conclusion is modest but useful: **for this checkpoint and this validation split, the existing rerank defaults were already as good as the tested alternatives**.
 
-### Comparison To `hyper_results.csv`
+### Comparison To W&B Results
 
-The full hyperparameter search results in `hyper_results.csv` show that **plain validation mAP** and **reranked validation mAP** do not rank models in the same way. This is important context for interpreting Experiment 6, because reranking is not just a small uniform post-processing gain added to every run.
+The full hyperparameter search results in **W&B** show that **plain validation mAP** and **reranked validation mAP** do not rank models in the same way. This is important context for interpreting Experiment 6, because reranking is not just a small uniform post-processing gain added to every run.
 
 If we compare each run only at its **best saved checkpoint**, `best_val_mAP_rerank - best_val_mAP` is on average **`+0.0026`**, and **30 of 48 runs** improve under reranking.
 
@@ -279,7 +279,7 @@ The most important effect is the change in **model ranking**:
 - The best run by reranked validation mAP is `eva_unfrozen_rs_04_hlr1e-04_blr1e-05_wd1e-05_do0.2_aug1_bs16` with **`best_val_mAP_rerank = 0.9365`**, even though its plain best mAP is only **`0.9170`**.
 - The checkpoint used in this reranking sanity check, `eva_unfrozen_rs_08_hlr3e-05_blr3e-05_wd1e-04_do0.2_aug0_bs16`, is a good example of a run that benefits meaningfully from reranking: **`0.9095 -> 0.9238`** at the best checkpoint.
 
-So the comparison in `hyper_results.csv` supports two conclusions at once: first, reranking can matter enough to change which hyperparameter setting looks best; second, once a rerank-friendly checkpoint is chosen, the standard parameter choice (`k1=20`, `k2=6`, `lambda=0.3`) was already very hard to beat in Experiment 6.
+So the comparison in **W&B** supports two conclusions at once: first, reranking can matter enough to change which hyperparameter setting looks best; second, once a rerank-friendly checkpoint is chosen, the standard parameter choice (`k1=20`, `k2=6`, `lambda=0.3`) was already very hard to beat in Experiment 6.
 
 ### Limitations
 
@@ -391,6 +391,7 @@ We therefore conclude that **deterministic crop-based TTA does not provide a mea
 ## Experiment 10 - Background Comparison
 
 | [Notebook](notebooks/10_background.ipynb) | 
+[W&B Run Group](https://wandb.ai/juggling-jaguars/jaguar-reid-jugglingjaguars/groups/Experiment-10-Background/) |
 [Results CSV](checkpoints/e15_dataset_source_comparison/dataset_source_results.csv) | 
 No new Kaggle submission | 
 

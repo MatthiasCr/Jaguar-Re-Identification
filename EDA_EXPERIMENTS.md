@@ -97,6 +97,7 @@ The conclusion is that **training seed has a meaningful impact on final retrieva
 ## Experiment 11 - Interpretability with Integrated Gradients
 
 | [Notebook](notebooks/11_interpretability.ipynb) |
+[W&B Run Group](https://wandb.ai/juggling-jaguars/jaguar-reid-jugglingjaguars/groups/Experiment-11-Interpretability) |
 [Results Directory](interpretability_results/11_interpretability) |
 
 This experiment focuses on understanding which image regions drive the model's identity predictions. The notebook trains or loads an end-to-end ArcFace model with an unfrozen EfficientNetB3 backbone and then uses **Integrated Gradients** from Captum to visualize attribution heatmaps on validation images.
