@@ -2,7 +2,7 @@
 
 | [Notebook](notebooks/01_backbones.ipynb) | 
 [W&B Run Group](https://wandb.ai/juggling-jaguars/jaguar-reid-jugglingjaguars/groups/Experiment-1-Backbones) | 
-Kaggle Submission: best model Eva-02, Score: 0.871 | 
+Kaggle Submission Score: 0.871 (EVA-02)| 
 
 The backbone creates the base embeddings and is therefore one of the most important parts of the model. Different backbones can have different architectures, different input and output sizes, and different number of parameters, so the decision can have important implications on performance but also on efficiency. In this experiment we want to compare 5 different backbones to see which one results the best mAP. 
 
@@ -43,7 +43,7 @@ EfficientNetB3 also performs surprisingly well for its tiny size in comparison a
 
 | [Notebook](notebooks/02_loss_functions.ipynb) | 
 [W&B Run Group](https://wandb.ai/juggling-jaguars/jaguar-reid-jugglingjaguars/groups/Experiment-2-LossFunctions) | 
-no improvment so no new kaggle sumbission | 
+no improvement over experiment 1: 0.871 (ArcFace) | 
 
 In Experiment 1 we fixed the loss to the metric learning loss ArcFace. Here we want to understand ArcFace and metric learning in general better by comparing it to plain CrossEntropy and the very similar alternatives SphereFace and CosFace. Compared to plain classification which only optimizes correct class assignment, metric learning explicitly shapes the embedding space by pulling samples of the same identity closer and pushing different identities farther apart. The goal of this experiment is to answer whether margin-based metric learning improves mAP performance and which margin variant works best in our setup.
 
@@ -83,7 +83,7 @@ ArcFace and CosFace perform very similarly and both achieve substantially better
 
 | [Notebook](notebooks/04_backbone_finetuning.ipynb) | 
 [W&B Run Group](https://wandb.ai/juggling-jaguars/jaguar-reid-jugglingjaguars/groups/Experiment-4-BackboneFinetuning/) | 
-Kaggle Submission: best run fine-tune all, Score: 0.907 | 
+Kaggle Submission Score: 0.907 (fine-tune all) | 
 
 In the last experiments we always froze the backbone and just trained a few linear layers as embedding projection and the ArcFace head model. However, the backbone is pretrained on huge amounts of general image data with the training goal of general image classification. The backbone is therefore not specialized on our specific task of jaguar re-identification. Fine-tuning the last few layers or even the entire backbone can often help the model adapt to a specific task and dataset. In this experiment we want to evaluate if fine-tuning the backbone during training can achieve a higher identity balanced mAP.
 
@@ -109,9 +109,9 @@ All other hyperparameters will be fixed for each run. All runs get a budget of 1
 |run|backbone trainable params|epochs trained|time per epoch|best val mAP|kaggle public score|
 |--|--:|--:|--:|--:|--|
 |freeze all|0|60| 2.9 s|0.854|-|
-|train last 2|12,600,000|39|6.00 min|0.874|-|
-|train last 4|25,200,000|28|6.14 min|0.881|-|
-|train last 8|50,400,000|19|5.51 min|0.886|-|
+|train last 2|25,202,000|39|6.00 min|0.874|-|
+|train last 4|50,401,952|28|6.14 min|0.881|-|
+|train last 8|101,467,456|19|5.51 min|0.886|-|
 |train all|304,055,232|16|5.71 min|0.902|0.907|
 
 ![](/images/e4_wandb_dashboard.png)
@@ -119,18 +119,19 @@ All other hyperparameters will be fixed for each run. All runs get a budget of 1
 ## Experiment 5 - Hyperparameter Search
 
 | [Notebook](notebooks/05_hyperparamter_search.ipynb) | 
-[W&B Run Group](https://wandb.ai/juggling-jaguars/jaguar-reid-jugglingjaguars/groups/Experiment-5-HyperparameterSearch) | 
-Kaggle Submission: Score: 0.912 | 
+[W&B Run Group](https://wandb.ai/juggling-jaguars/jaguar-reid-jugglingjaguars/groups/Experiment-5-HyperparameterSearch) | [W&B Sweep](https://wandb.ai/juggling-jaguars/jaguar-reid-jugglingjaguars/sweeps/df5f8s4d) |
+Kaggle Submission Score: 0.912 | 
 
-In the previous experiments we fixed the general architecture: EVA-02 Large backbone, ArcFace loss, and full backbone fine-tuning. This already achieved a strong Kaggle score of `0.907`, but many training hyperparameters were still chosen manually. The goal of this experiment was therefore to identify a better combination of learning rates, regularization, head width, and training augmentation.
+In the previous experiments we fixed the general training hyperparameters such as learning rate, dropout, weight decay, batch size as well as architecture decisions such as the embedding dimension. This already achieved a strong Kaggle score of `0.907`, but these hyperparameters were still chosen manually. The goal of this experiment is therefore to identify a better combination of learning rates, regularization and head width. Also part of this experiment is to test if training augmentation can help improving mAP, so we include training augmentation (yes/no) in the search space.
+
+**Research question:** Which hyperparameter configuration achieves the best identity-balanced mAP?
 
 ### Setup
 
 We keep the overall model architecture fixed:
 
-- **Backbone:** `eva02_large_patch14_448.mim_m38m_ft_in22k_in1k`
-- **Input size:** `448`
-- **Training mode:** full backbone fine-tuning (`freeze_backbone=False`)
+- **Backbone:** EVA-02 Large (input size: 448)
+- **Training mode:** full backbone fine-tuning
 - **Loss/head:** ArcFace with `margin=0.5`, `scale=64`
 - **Optimizer:** AdamW
 - **Scheduler:** ReduceLROnPlateau with patience `2`
@@ -138,11 +139,9 @@ We keep the overall model architecture fixed:
 - **Seed:** `42`
 - **Reranking during validation:** enabled with `k1=20`, `k2=6`, `lambda=0.3`
 
-For each sampled run we train a fresh model and select the best checkpoint by **validation rerank mAP**.
-
 ### Search Space
 
-We perform a random search over the following parameters:
+We perform a **random search** over the following parameters:
 
 |parameter|possible values|
 |--|--|
@@ -155,6 +154,16 @@ We perform a random search over the following parameters:
 |embedding dimension|`256`, `384`|
 |hidden dimension|`512`, `768`|
 
+This search space leads to 1296 possible combinations. We randomly sample 48 configurations and train a fresh model each time. With 48 random samples, the probability of evaluating at least one configuration from the top 5% of the search space is about 91%, and over 99% for the top 10%. Since each run takes about 2-3 hours training time, this sample size is a reasonable compromise between computational cost and search space coverage.
+
+For runs with training augmention we do the following random transforms:
+
+- RandomResizedCrop: scale=(0.85, 1.0), ratio=(0.9, 1.1)
+- RandomAffine: degrees=15, translate=0.1, scale=(0.9, 1.1)
+- ColorJitter: brightness=0.2, contrast=0.2, saturation=0.15, hue=0.03
+- RandomGaussianBlur: p=0.15, kernel=3 
+- RandomAdjustSharpness: p=0.1, factor=1.5
+- RandomErasing: p=0.25
 
 ### Results
 
