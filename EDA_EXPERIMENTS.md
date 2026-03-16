@@ -59,6 +59,8 @@ Weighted sampling does improve average precision for some identites, but can hav
 
 After fixing the training parameters, we wanted to measure how much variance remains purely from the random seed. This is important because if seed-to-seed variance is large, then small differences between experimental tweaks can be misleading unless runs are repeated.
 
+**Research Question:** How large is the performance variation caused purely by the random seed, and are single-run improvements large enough to be trusted without repetition?
+
 ### Setup
 
 We keep the full training configuration fixed and only vary the random seed. The compared model is the EVA unfrozen ArcFace setup with the following fixed hyperparameters:
@@ -90,7 +92,7 @@ We run the same experiment for 10 seeds (`42` to `51`) and compare the best vali
 
 Across the 10 seeds, the mean reranked validation mAP is **0.9109 +- 0.0166**. The best run reaches **0.9381** (seed 43), while the weakest run reaches **0.8920** (seed 44). This spread is substantial and larger than many of the marginal effects observed in later experiments such as deterministic TTA.
 
-The conclusion is that **training seed has a meaningful impact on final retrieval performance in this setup**. Therefore, single-run comparisons should be interpreted carefully, and strong results should ideally be confirmed across multiple seeds or at least by repeating promising configurations.
+The conclusion is that training seed has a meaningful impact on final retrieval performance in this setup. Therefore, single-run comparisons should be interpreted carefully, and strong results should ideally be confirmed across multiple seeds or at least by repeating promising configurations.
 
 
 ## Experiment 11 - Interpretability with Integrated Gradients
@@ -99,7 +101,7 @@ The conclusion is that **training seed has a meaningful impact on final retrieva
 [W&B Run Group](https://wandb.ai/juggling-jaguars/jaguar-reid-jugglingjaguars/groups/Experiment-11-Interpretability) |
 [Results Directory](interpretability_results/) |
 
-This experiment focuses on understanding which image regions drive the model's identity predictions. The notebook trains or loads an end-to-end ArcFace model with an unfrozen EfficientNetB3 backbone and then uses **Integrated Gradients** from Captum to visualize attribution heatmaps on validation images.
+This experiment focuses on understanding which image regions drive the model's identity predictions. The notebook trains or loads an end-to-end ArcFace model with an unfrozen EfficientNetB3 backbone and then uses Integrated Gradients from Captum to visualize attribution heatmaps on validation images.
 
 The notebook also includes two additional sanity checks:
 
