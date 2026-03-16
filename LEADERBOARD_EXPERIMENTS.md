@@ -344,6 +344,7 @@ So GeM does not show a consistent improvement in this experiment. It helps on se
 
 With the current seed sweep, the answer to the research question is: GeM pooling does **not convincingly** improve retrieval quality. The GeM variant is competitive, but there is no reliable mean improvement over default pooling, so we do not treat GeM as a clearly better replacement in this setup.
 
+![](images/e7_wandb_graphs.png)
 
 ## Experiment 8 - Test-Time Augmentation
 
