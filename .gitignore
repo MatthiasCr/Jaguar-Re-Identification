@@ -12,3 +12,4 @@ data_background/*
 .zip
 src/__pycache__/*
 slurm/logs/*
+scripts/.venv
