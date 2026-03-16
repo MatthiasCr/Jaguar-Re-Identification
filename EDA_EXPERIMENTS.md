@@ -34,7 +34,7 @@ Now we look at the individual identities. The following table shows the top move
 |identity|train samples|AP baseline|AP weighted sampler|difference|
 |--|--|--|--|--|
 |Oxum|14|0.820|0.850|+ 0.030|
-|Madalena|22|0.976|0.998|+ 0.224|
+|Madalena|22|0.976|0.998|+ 0.0224|
 |Tomas|50|0.910|0.921|+ 0.011|
 ||
 |Bororo|18|0.522|0.507|- 0.015|
