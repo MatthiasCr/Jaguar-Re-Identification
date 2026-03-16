@@ -243,26 +243,26 @@ This means the tuned search gained:
 
 So the practical conclusion is modest but useful: **for this checkpoint and this validation split, the existing rerank defaults were already as good as the tested alternatives**.
 
-### Comparison To W&B Results
-
-The full hyperparameter search results in **W&B** show that **plain validation mAP** and **reranked validation mAP** do not rank models in the same way. This is important context for interpreting Experiment 6, because reranking is not just a small uniform post-processing gain added to every run.
-
-If we compare each run only at its **best saved checkpoint**, `best_val_mAP_rerank - best_val_mAP` is on average **`+0.0026`**, and **30 of 48 runs** improve under reranking.
-
-The most important effect is the change in **model ranking**:
-
-- The best run by plain validation mAP is `eva_unfrozen_rs_08_hlr3e-04_blr3e-05_wd1e-04_do0.3_aug0_bs16` with **`best_val_mAP = 0.9355`**, but its reranked score is slightly lower at **`0.9336`**.
-- The best run by reranked validation mAP is `eva_unfrozen_rs_04_hlr1e-04_blr1e-05_wd1e-05_do0.2_aug1_bs16` with **`best_val_mAP_rerank = 0.9365`**, even though its plain best mAP is only **`0.9170`**.
-- The checkpoint used in this reranking sanity check, `eva_unfrozen_rs_08_hlr3e-05_blr3e-05_wd1e-04_do0.2_aug0_bs16`, is a good example of a run that benefits meaningfully from reranking: **`0.9095 -> 0.9238`** at the best checkpoint.
-
-So the comparison in **W&B** supports two conclusions at once: first, reranking can matter enough to change which hyperparameter setting looks best; second, once a rerank-friendly checkpoint is chosen, the standard parameter choice (`k1=20`, `k2=6`, `lambda=0.3`) was already very hard to beat in Experiment 6.
-
 ### Limitations
 
 This result is based on **one specific checkpoint** and **one validation split**, so it should be interpreted as a targeted sanity check rather than a universal statement about reranking. In addition, the evaluated checkpoint was already selected with the same default reranking parameters (`k1=20`, `k2=6`, `lambda=0.3`), which biases the sweep toward rediscovering those defaults.
 
 We therefore treat this experiment mainly as a **sanity check**: it supports keeping the standard rerank parameters for later experiments, but it does **not** prove that reranking can no longer be improved in general.
 
+
+### Reranking results during Hyperparameter search
+
+During each hyperparameter search run we logged both plain validation mAP and reranked validation mAP in W&B. We use these results here only to understand whether reranking can change model ranking across runs; this is a different question from the main Experiment 6 sweep, which asks whether the default reranking parameters can be improved for one fixed checkpoint.
+
+If we compare each run only at its **best saved checkpoint**, `best_val_mAP_rerank - best_val_mAP` is on average **`+0.0026`**, and **30 of 48 runs** improve under reranking. Since these are best-checkpoint summaries from a search where reranking was already part of validation, they are informative about ranking shifts, but they should not be interpreted as a fully unbiased estimate of reranking gain.
+
+The most important effect is the change in **model ranking**:
+
+- The best run by plain validation mAP is `eva_unfrozen_rs_08_hlr3e-04_blr3e-05_wd1e-04_do0.3_aug0_bs16` with **`best_val_mAP = 0.9355`**, but its reranked score is slightly lower at **`0.9336`**.
+- The best run by reranked validation mAP is `eva_unfrozen_rs_04_hlr1e-04_blr1e-05_wd1e-05_do0.2_aug1_bs16` with **`best_val_mAP_rerank = 0.9365`**, even though its plain best mAP is only **`0.9170`**.
+- The checkpoint used in the Experiment 6 sanity check, `eva_unfrozen_rs_08_hlr3e-05_blr3e-05_wd1e-04_do0.2_aug0_bs16`, is a good example of a run that benefits meaningfully from reranking: **`0.9095 -> 0.9238`** at the best checkpoint.
+
+So the comparison in **W&B** supports two conclusions at once: first, reranking can matter enough to change which hyperparameter setting looks best; second, that does **not** contradict the main Experiment 6 result, because the sweep there only shows that for one rerank-friendly checkpoint the standard parameter choice (`k1=20`, `k2=6`, `lambda=0.3`) was already very hard to beat.
 
 ## Experiment 7 - GeM Pooling
 
