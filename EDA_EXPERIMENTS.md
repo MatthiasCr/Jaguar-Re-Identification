@@ -56,7 +56,6 @@ Weighted sampling does improve average precision for some identites, but can hav
 
 | [Notebook](notebooks/09_seed_comparison.ipynb) |
 [W&B Run Group](https://wandb.ai/juggling-jaguars/jaguar-reid-jugglingjaguars/groups/Experiment-9-RandomSeeds) |
-No new Kaggle submission |
 
 After fixing the training parameters, we wanted to measure how much variance remains purely from the random seed. This is important because if seed-to-seed variance is large, then small differences between experimental tweaks can be misleading unless runs are repeated.
 
@@ -100,7 +99,7 @@ The conclusion is that training seed has a meaningful impact on final retrieval 
 
 | [Notebook](notebooks/11_interpretability.ipynb) |
 [W&B Run Group](https://wandb.ai/juggling-jaguars/jaguar-reid-jugglingjaguars/groups/Experiment-11-Interpretability) |
-[Results Directory](interpretability_results/11_interpretability) |
+[Results Directory](interpretability_results/) |
 
 This experiment focuses on understanding which image regions drive the model's identity predictions. The notebook trains or loads an end-to-end ArcFace model with an unfrozen EfficientNetB3 backbone and then uses Integrated Gradients from Captum to visualize attribution heatmaps on validation images.
 
