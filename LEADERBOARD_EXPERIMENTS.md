@@ -361,14 +361,14 @@ We therefore conclude that **deterministic crop-based TTA does not provide a mea
 [Results CSV](checkpoints/e15_dataset_source_comparison/dataset_source_results.csv) | 
 No new Kaggle submission | 
 
-After discovering that the original `data` images still contain RGB values in transparent regions while `data_background` removes them, we wanted to test whether those hidden background pixels materially affect training and retrieval.
+After discovering that the original `data` images still contain RGB values in transparent regions while `data_background` removes them, we wanted to test whether training on images **with background information** or **without background information** materially affects training and retrieval.
 
 ### Setup
 
 We keep the model configuration fixed and compare two data sources:
 
-- **`data`**: original images, including RGB values hidden behind the alpha mask
-- **`data_background`**: same images, but hidden RGB values removed
+- **`data_with_background`** (folder: `data`): original images, including RGB values hidden behind the alpha mask
+- **`data_without_background`** (folder: `data_background`): same images, but hidden RGB values removed
 
 To make the comparison fair, the notebook:
 
@@ -376,10 +376,10 @@ To make the comparison fair, the notebook:
 - enforces a **shared validation split** across both sources
 - trains a **fresh model on each source**
 - runs a **2x2 cross-evaluation**:
-  - train on `data`, evaluate on `data`
-  - train on `data`, evaluate on `data_background`
-  - train on `data_background`, evaluate on `data`
-  - train on `data_background`, evaluate on `data_background`
+  - train on `data_with_background`, evaluate on `data_with_background`
+  - train on `data_with_background`, evaluate on `data_without_background`
+  - train on `data_without_background`, evaluate on `data_with_background`
+  - train on `data_without_background`, evaluate on `data_without_background`
 
 This isolates whether the background treatment changes the learned representation, rather than just changing the train/val split.
 
@@ -389,24 +389,24 @@ Training each source on its own version of the validation set gives:
 
 |train source|eval source|val mAP|val mAP rerank|
 |--|--|--:|--:|
-|`data`|`data`|0.8921|**0.9122**|
-|`data_background`|`data_background`|**0.8984**|0.9067|
+|`data_with_background`|`data_with_background`|0.8921|**0.9122**|
+|`data_without_background`|`data_without_background`|**0.8984**|0.9067|
 
 Cross-evaluation shows a stronger effect:
 
 |train source|eval source|val mAP|val mAP rerank|
 |--|--|--:|--:|
-|`data`|`data_background`|0.6021|0.6085|
-|`data_background`|`data`|0.8187|0.8309|
+|`data_with_background`|`data_without_background`|0.6021|0.6085|
+|`data_without_background`|`data_with_background`|0.8187|0.8309|
 
 ### Interpretation
 
 The result is asymmetric:
 
-- The model trained on original `data` performs best on original `data`.
-- The model trained on `data_background` performs slightly better in plain mAP on its own source, but still trails the `data` model in reranked mAP on its own source.
-- When evaluated on the opposite source, both models degrade sharply, especially the model trained on `data` and evaluated on `data_background`.
+- The model trained on `data_with_background` performs best on `data_with_background`.
+- The model trained on `data_without_background` performs slightly better in plain mAP on its own source, but still trails the `data_with_background` model in reranked mAP on its own source.
+- When evaluated on the opposite source, both models degrade sharply, especially the model trained on `data_with_background` and evaluated on `data_without_background`.
 
-This suggests that the hidden RGB values are not just harmless noise. They appear to create a real domain shift that the model learns to rely on. Removing them changes the image distribution enough that embeddings no longer transfer cleanly between the two sources.
+This suggests that the hidden RGB values are not just harmless noise. They appear to create a real domain shift that the model learns to rely on, so moving from `data_with_background` to `data_without_background` changes the image distribution enough that embeddings no longer transfer cleanly between the two sources.
 
-The practical takeaway is that **background handling matters a lot in this project**. Any final training or submission pipeline should stick to one consistent image source and avoid mixing `data` and `data_background` without retraining.
+The practical takeaway is that **background handling matters a lot in this project**. Any final training or submission pipeline should stick to one consistent image source and avoid mixing `data_with_background` (`data`) and `data_without_background` (`data_background`) without retraining.
