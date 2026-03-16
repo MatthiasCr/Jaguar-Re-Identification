@@ -382,7 +382,7 @@ We therefore conclude that **deterministic crop-based TTA does not provide a mea
 ## Experiment 10 - Background vs. no Background
 
 | [Notebook](notebooks/10_background.ipynb) | 
-[W&B Run Group](https://wandb.ai/juggling-jaguars/jaguar-reid-jugglingjaguars/groups/Experiment-10-Background/) |
+[W&B Run Group](https://wandb.ai/juggling-jaguars/jaguar-reid-jugglingjaguars/groups/Experiment-10-Background/) | Round 1 public score: 0.912 | Round 2 public score: 0.899 |
 
 In all previous experiments we always used the full images with background information and just ignored the alpha mask. In this experiment we use the dataset of the **Kaggle competition round 2** which does not include background information at all. We train our best model on both datasets and compare its performance.
 
@@ -408,12 +408,14 @@ To make the comparison fair both runs:
 
 ### Results
 
-Training each source on its own version of the validation set gives:
+![](images/e10_wandb_graphs.png)
+
+The results of the two runs are in the following table. We used both models to create a submission for their respective Kaggle competition. We report the resulting public scores in the following table too:
 
 |train data|eval data|val mAP|val mAP rerank|kaggle public score|
 |--|--|--:|--:|--:|
-|with background|with background|**0.9070**|**0.9095**|0.912|
-|without background|without background|0.8845|0.9010|0.899|
+|with background|with background|**0.9070**|**0.9095**|0.912 (round 1)|
+|without background|without background|0.8845|0.9010|0.899 (round 2)|
 
 Cross-evaluation shows a stronger effect:
 
@@ -422,12 +424,6 @@ Cross-evaluation shows a stronger effect:
 |with background|without background|0.6314|0.6486|
 |without background|with background|0.8311|0.8470|
 
-The result is asymmetric:
+The model trained and evaluated on data with background achieves a better result than the model that is trained and evaluated on the data without background. However, when using k-reciprocal re-ranking, the difference in validation mAP becomes small (+0.008 when using data with background). This shows that our model and hyperparameter configuration is generally suitable for both versions of the data.
 
-- The model trained on `data_with_background` performs best on `data_with_background`.
-- The model trained on `data_without_background` is weaker on its own source than the `data_with_background` model is on its own source, in both plain mAP and reranked mAP.
-- When evaluated on the opposite dataset, both models degrade significantly, especially the model trained on `data_with_background` and evaluated on `data_without_background`.
-
-This suggests that the hidden RGB values are not just harmless noise. They appear to create a real domain shift that the model learns to rely on, so moving from `data_with_background` to `data_without_background` changes the image distribution enough that embeddings no longer transfer cleanly between the two sources.
-
-The practical takeaway is that background handling matters a lot in this project. Any final training or submission pipeline should stick to one consistent image source and avoid mixing `data_with_background` (`data`) and `data_without_background` (`data_background`) without retraining.
+When evaluated on the opposite dataset, both models degrade significantly, especially the model trained on data **with** background and evaluated on the data **without** background. This suggests that the background RGB values are not just harmless noise. They appear to create a real domain shift that the model learns to rely on, so moving from data with background to data without background changes the image distribution enough that embeddings no longer transfer cleanly between the two datasets.
