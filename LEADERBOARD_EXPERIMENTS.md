@@ -348,7 +348,7 @@ With the current seed sweep, the answer to the research question is: GeM pooling
 
 ## Experiment 8 - Test-Time Augmentation
 
-| [Notebook](notebooks/08_tta_comparison.ipynb) | 
+| [Notebook](notebooks/08_test_time_augmentation.ipynb) | 
 [W&B Run Group](https://wandb.ai/juggling-jaguars/jaguar-reid-jugglingjaguars/groups/Experiment-8-TestTimeAugmentation) | 
 No new Kaggle submission | 
 
@@ -390,10 +390,10 @@ In all previous experiments we always used the full images with background infor
 
 ### Setup
 
-We keep the model configuration fixed and compare two data sources:
+We keep the model configuration fixed (EVA-02, ArcFace, Reranking, all training hyperparameters) and compare two data sources:
 
-- **`data_with_background`**: original images, including RGB values hidden behind the alpha mask
-- **`data_without_background`**: same images, but hidden RGB values removed
+- **data_with_background**: images of Kaggle competition round 1, including RGB background
+- **data_without_background**: images of Kaggle competition round 2, with background completely removed
 
 To make the comparison fair both runs:
 
@@ -405,8 +405,6 @@ To make the comparison fair both runs:
   - train on `data_with_background`, evaluate on `data_without_background`
   - train on `data_without_background`, evaluate on `data_with_background`
   - train on `data_without_background`, evaluate on `data_without_background`
-
-This isolates whether the background treatment changes the learned representation, rather than just changing the train/val split.
 
 ### Results
 
