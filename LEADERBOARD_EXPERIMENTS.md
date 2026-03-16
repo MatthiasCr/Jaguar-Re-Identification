@@ -33,10 +33,10 @@ In the table below we report some essential metrics of the runs. More metrics su
 |ResNet50|CNN|23,508,032|288|91 (81)|0.817|0.728|
 |EfficientNetB3|CNN|10,696,232|300|100 (90)|0.841|0.759|
 |DINOv3|ViT|303,079,424|256|99 (89)|0.867|0.841|
-|Eva02|ViT|304,055,232|448|84 (74)|0.862|0.871|
+|EVA-02|ViT|304,055,232|448|84 (74)|0.862|0.871|
 
 DINOv3 gives the strongest validation mAP in this setup, with EVA-02 close behind. On the test set in Kaggle, EVA-02 scored an even better public score of 0.871, while DINOv3 got only 0.841. We conclude that large ViT backbones are currently the best choice for this task. 
-EfficientNetB3 also performs surprisingly well for its tiny size in comparison and even outperforms ResNet50 and the much larger MegaDescriptor. That makes EfficientNetB3 a very space and compute efficient option. However, we only focus on achieving the best performance, so for leaderboard submissions we will prioritize DINOv3/EVA-02.
+EfficientNetB3 also performs surprisingly well for its tiny size in comparison and even outperforms ResNet50 and the much larger MegaDescriptor. That makes EfficientNetB3 a very space and compute efficient option. However, we only focus on achieving the best performance, so for leaderboard submissions we will prioritize EVA-02.
 
 
 ## Experiment 2 - Loss Function Comparison
@@ -85,11 +85,13 @@ ArcFace and CosFace perform very similarly and both achieve substantially better
 [W&B Run Group](https://wandb.ai/juggling-jaguars/jaguar-reid-jugglingjaguars/groups/Experiment-4-BackboneFinetuning/) | 
 Kaggle Submission Score: 0.907 (fine-tune all) | 
 
-In the last experiments we always froze the backbone and just trained a few linear layers as embedding projection and the ArcFace head model. However, the backbone is pretrained on huge amounts of general image data with the training goal of general image classification. The backbone is therefore not specialized on our specific task of jaguar re-identification. Fine-tuning the last few layers or even the entire backbone can often help the model adapt to a specific task and dataset. In this experiment we want to evaluate if fine-tuning the backbone during training can achieve a higher identity balanced mAP.
+In the last experiments we always froze the backbone and just trained a few linear layers as embedding projection and the ArcFace head model. However, the backbone is pretrained on huge amounts of general image data with the training goal of general image classification. The backbone is therefore not specialized on our specific task of jaguar re-identification. Fine-tuning the last few layers or even the entire backbone can often help the model adapt to a specific task and dataset. 
+
+**Research question:** Does fine-tuning the backbone during training can achieve a higher identity balanced mAP?
 
 ### Setup
 
-We use the previously best performing backbone which is Eva-02 Large. This model is a vision transformer and consists of **24 identical transfomer-encoder blocks** (self-attention, SwiGlu, RoPE, MLP). Each of these blocks have around 12.6 million parameters which sums up to around 305 million parameters in total. 
+We use the previously best performing backbone which is EVA-02 Large. This model is a vision transformer and consists of **24 identical transfomer-encoder blocks** (self-attention, SwiGlu, RoPE, MLP). Each of these blocks have around 12.6 million parameters which sums up to around 304 million parameters in total. 
 We evaluate different levels of backbone fine-tuning/freezing:
 
 - **Backbone completely frozen** - the backbone is not retrained at all. This is the baseline.
@@ -98,23 +100,27 @@ We evaluate different levels of backbone fine-tuning/freezing:
 - **Fine-Tune last 8 Blocks**
 - **Fine-Tune the entire backbone** - this makes all backbone parameters trainable
 
-Since the Eva-02 model is large and our data is relativly small, backpropagation and weight updates on the backbone comes with risks of changing the backbone to much and thus "destroying" the pretrained weights. Therefore we will use a smaller learning rate for the backbone parameters: The backbone learning rate will be `1e-5` which is ten times smaller than the learning rate for the ArcFace head (`1e-4`).
+Since the EVA-02 model is large and our data is relativly small, backpropagation and weight updates on the backbone comes with risks of changing the backbone to much and thus "destroying" the pretrained weights. Therefore we will use a smaller learning rate for the backbone parameters: The backbone learning rate will be `1e-5` which is ten times smaller than the learning rate for the ArcFace head (`1e-4`).
 
-For the run with the fully frozen backbone we precompute the backbone embeddings for all training and validation data once and cache them to speed up training (same how we did it in the first three experiments). The other runs are trained end-to-end, so all images are processed through the backbone again in every forward pass, which leads to much longe training times. 
+For the run with the fully frozen backbone we precompute the backbone embeddings for all training and validation data once and cache them to speed up training (same how we did it in the first three experiments). The other runs are trained end-to-end, so all images are processed through the backbone again in every forward pass, which leads to much longe training times. All other hyperparameters will be fixed for each run. All runs get a budget of 100 epochs with a patience of 8 for early stopping. The learning rate for both head and backbone is scheduled using `ReduceLROnPlateau` with a patience of 2.
 
-All other hyperparameters will be fixed for each run. All runs get a budget of 100 epochs with a patience of 8 for early stopping. The learning rate for both head and backbone is scheduled using `ReduceLROnPlateau` with a patience of 2.
+Next to the identity-balanced mAP on the validation data we also compute the mAP after applying k-reciprocal rerank (k1=20, k2=6, lambda=0.3) as evaluation metric. However, the effect of this reranking itself is not the main research goal of this experiment, in [experiment 6](#experiment-6---k-reciprocal-re-ranking) we will evaluate this further.
 
 ### Results
 
-|run|backbone trainable params|epochs trained|time per epoch|best val mAP|kaggle public score|
-|--|--:|--:|--:|--:|--|
-|freeze all|0|60| 2.9 s|0.854|-|
-|train last 2|25,202,000|39|6.00 min|0.874|-|
-|train last 4|50,401,952|28|6.14 min|0.881|-|
-|train last 8|101,467,456|19|5.51 min|0.886|-|
-|train all|304,055,232|16|5.71 min|0.902|0.907|
+|run|backbone trainable params|epochs trained|time per epoch|best val mAP|best val mAP rerank|kaggle public score|
+|--|--:|--:|--:|--:|--:|--:|
+|freeze all|0|60| 2.9 s|0.854|0.860|-|
+|train last 2|25,202,000|39|6.00 min|0.874|0.877|-|
+|train last 4|50,401,952|28|6.14 min|0.881|0.888|-|
+|train last 8|101,467,456|19|5.51 min|0.886|0.887|-|
+|train all|304,055,232|16|5.71 min|0.902|0.901|0.907|
 
-![](/images/e4_wandb_dashboard.png)
+![](/images/e4_wandb_graphs.png)
+
+The results show a clear monotonic trend: unfreezing more of the EVA-02 backbone consistently improves validation mAP, and full end-to-end fine-tuning performs best by a noticeable margin over the frozen baseline. This suggests that the pretrained features still benefit substantially from task-specific adaptation to jaguar re-identification. At the same time, the compute cost increases dramatically once the backbone is no longer cached, so the gain comes with a significant training-time tradeoff. 
+
+From the graphs we can also see that models with more trainable parameters have a steeper learning curve and converged earlier. This indicates that the additional trainable backbone capacity allows the model to adapt to the jaguar-specific identity cues much faster.
 
 ## Experiment 5 - Hyperparameter Search
 
@@ -139,6 +145,8 @@ We keep the overall model architecture fixed:
 - **Seed:** `42`
 - **Reranking during validation:** enabled with `k1=20`, `k2=6`, `lambda=0.3`
 
+Similar to experiment 4, we not only calculate the identity-balanced mAP on the validation data, but also compute it again with k-reciprocal reranking applied. We use both metrics for the experiment evaluation. Deeper investigations about k-reciprocal reranking can be found in [experiment 6](#experiment-6---k-reciprocal-re-ranking).
+
 ### Search Space
 
 We perform a **random search** over the following parameters:
@@ -154,7 +162,7 @@ We perform a **random search** over the following parameters:
 |embedding dimension|`256`, `384`|
 |hidden dimension|`512`, `768`|
 
-This search space leads to 1296 possible combinations. We randomly sample 48 configurations and train a fresh model each time. With 48 random samples, the probability of evaluating at least one configuration from the top 5% of the search space is about 91%, and over 99% for the top 10%. Since each run takes about 2-3 hours training time, this sample size is a reasonable compromise between computational cost and search space coverage.
+This search space leads to **1296 possible combinations**. We randomly sample **48 configurations** and train a fresh model each time. With 48 random samples, the probability of evaluating at least one configuration from the top 5% of the search space is about 91%, and over 99% for the top 10%. Since each run takes about 2-3 hours training time, this sample size is a reasonable compromise between computational cost and search space coverage.
 
 For runs with training augmention we do the following random transforms:
 
@@ -167,29 +175,45 @@ For runs with training augmention we do the following random transforms:
 
 ### Results
 
-In total we trained 48 configurations and logged them to W&B. Below we report the strongest configurations.
+In total we trained 48 configurations and logged them to W&B. We also added the runs to a [W&B Sweep](https://wandb.ai/juggling-jaguars/jaguar-reid-jugglingjaguars/sweeps/df5f8s4d) for the parameter importance analysis, although we did not use W&B agents or other W&B sweep features.
+
+![](images/e5_sweep_graph.png)
+
+In the table below we report the strongest configurations:
 
 |W&B run id|head lr|back-bone lr|weight decay|drop-out|aug|batch|embed|hidden|best val mAP|best val mAP rerank|best val loss|best epoch|
 |--|--:|--:|--:|--:|--|--:|--:|--:|--:|--:|--:|--:|
-|[qriyulso](https://wandb.ai/juggling-jaguars/jaguar-reid-jugglingjaguars/groups/Experiment-5-HyperparameterSearch/runs/qriyulso)|1e-4|1e-5|1e-5|0.2|on|16|384|768|0.9170|**0.9365**|2.2664|18|
-|[qp8fg51n](https://wandb.ai/juggling-jaguars/jaguar-reid-jugglingjaguars/groups/Experiment-5-HyperparameterSearch/runs/qp8fg51n)|3e-4|3e-5|1e-4|0.3|off|16|256|512|**0.9355**|0.9336|2.4942|10|
-|[k2pi28gh](https://wandb.ai/juggling-jaguars/jaguar-reid-jugglingjaguars/groups/Experiment-5-HyperparameterSearch/runs/k2pi28gh)|3e-5|3e-5|1e-4|0.2|off|16|384|768|0.9095|0.9238|**1.8927**|21|
-|[v67i2spa](https://wandb.ai/juggling-jaguars/jaguar-reid-jugglingjaguars/groups/Experiment-5-HyperparameterSearch/runs/v67i2spa)|3e-4|1e-5|5e-4|0.2|on|32|384|768|0.8989|0.9226|2.1571|8|
-|[b40hr4rt](https://wandb.ai/juggling-jaguars/jaguar-reid-jugglingjaguars/groups/Experiment-5-HyperparameterSearch/runs/b40hr4rt)|3e-5|1e-5|5e-4|0.3|off|16|384|768|0.9127|0.9201|1.8237|25|
+|[qriyulso](https://wandb.ai/juggling-jaguars/jaguar-reid-jugglingjaguars/groups/Experiment-5-HyperparameterSearch/runs/qriyulso)|1e-4|1e-5|1e-5|0.2|on|16|384|768|0.917|**0.937**|2.266|18|
+|[qp8fg51n](https://wandb.ai/juggling-jaguars/jaguar-reid-jugglingjaguars/groups/Experiment-5-HyperparameterSearch/runs/qp8fg51n)|3e-4|3e-5|1e-4|0.3|off|16|256|512|**0.936**|0.934|2.494|10|
+|[k2pi28gh](https://wandb.ai/juggling-jaguars/jaguar-reid-jugglingjaguars/groups/Experiment-5-HyperparameterSearch/runs/k2pi28gh)|3e-5|3e-5|1e-4|0.2|off|16|384|768|0.910|0.924|**1.893**|21|
+|[v67i2spa](https://wandb.ai/juggling-jaguars/jaguar-reid-jugglingjaguars/groups/Experiment-5-HyperparameterSearch/runs/v67i2spa)|3e-4|1e-5|5e-4|0.2|on|32|384|768|0.899|0.923|2.157|8|
+|[b40hr4rt](https://wandb.ai/juggling-jaguars/jaguar-reid-jugglingjaguars/groups/Experiment-5-HyperparameterSearch/runs/b40hr4rt)|3e-5|1e-5|5e-4|0.3|off|16|384|768|0.913|0.920|1.824|25|
+
+In W&B we analyzed the parameter importance with respect to the best validation mAP:
+
+|parameter|importance|correlation|
+|--|--|--|
+|head learning rate|0.261|-0.179|
+|hidden dimension|0.143|0.155|
+|weight decay|0.123|-0.233|
+|train augmentation|0.125|-0.353|
+|dropout|0.118|-0.016|
+|backbone learning rate|0.090|0.143|
+|embedding dimension|0.076|0.142|
+|batch size|0.055|-0.328|
+
 
 Several useful patterns emerge from the search:
 
 - **Batch size 16** dominates the top runs. All five best runs use batch size `16`.
 - **384 / 768** is a strong head size. Most top rerank results use `embedding_dim=384` and `hidden_dim=768`.
-- **Low dropout helps.** The strongest runs use `0.2` or `0.3`; `0.4` appears less competitive.
-- **Both augmentation settings can work.** The best reranked run uses augmentation, but several other top runs perform best without it.
-- **Reranked ranking and plain mAP do not always choose the same winner.** One run achieves the best plain validation mAP (`0.9355`) but is slightly behind the best reranked validation mAP (`0.9365`).
+- **Low dropout helps.** The strongest runs use `0.2` or `0.3`. `0.4` appears less competitive.
+- **Both augmentation settings can work.** The best run according to the reranked mAP uses augmentation, but several other top runs perform best without it.
+- **Reranked ranking and plain mAP do not always choose the same winner.** One run achieves the best plain validation mAP (`0.936`) but is slightly behind the best reranked validation mAP (`0.937`).
 
-The best run of the search is therefore: [qriyulso](https://wandb.ai/juggling-jaguars/jaguar-reid-jugglingjaguars/groups/Experiment-5-HyperparameterSearch/runs/qriyulso)
-- best validation mAP: **0.9170**
-- best validation rerank mAP: **0.9365**
+The W&B parameter importance analysis broadly supports these observations: among the tested hyperparameters, the head learning rate had the strongest estimated influence on validation mAP, followed by the hidden dimension and weight decay. At the same time, the negative correlations for train augmentation and batch size suggest that, within this search space, smaller batches and disabling augmentation were slightly more favorable on average, even though individual top runs still exist with augmentation enabled.
 
-This run became the new default checkpoint for later experiments and improved the Kaggle public score from `0.907` to `0.912`.
+The best run of the search is therefore [qriyulso](https://wandb.ai/juggling-jaguars/jaguar-reid-jugglingjaguars/groups/Experiment-5-HyperparameterSearch/runs/qriyulso) with a best validation mAP of **0.917** and a best reranked validation mAP of **0.937**. This run's configuration is different to the default configuration that we used in previous experiments (this one has a lower dropout, higher embedding and hidden dim and smaller batch size). This run therefore becomes the new default checkpoint for later experiments. We used it for a Kaggle submission (with reranking) which improved the Kaggle public score from `0.907` to `0.912`.
 
 ## Experiment 6 - K-Reciprocal Re-Ranking
 
