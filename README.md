@@ -4,7 +4,7 @@
 
 This is the final project of the Seminar  "Applied Hands-On Computer Vision" at HPI. It evolves around a Kaggle competition about Jaguar Re-Identification ([Kaggle Link](https://www.kaggle.com/competitions/jaguar-re-id)).
 
-All runs are logged to a public [W&B project](https://wandb.ai/juggling-jaguars/jaguar-reid-jugglingjaguars). You can group the runs by experiment or filter them using tags.
+All runs are logged to a public [W&B project](https://wandb.ai/juggling-jaguars/jaguar-reid-jugglingjaguars). You can group the runs by experiment (using `group by`->`group`) or filter them using tags.
 
 ![](images/wandb_dashboard.png)
 
