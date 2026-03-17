@@ -26,7 +26,7 @@ $ salloc --partition=cpu-interactive --account=sci-demelo-computer-vision --cpus
 
 ## Experiments
 
-All experiments were run on the HPI SCI cluster using an NVIDIA A100 40GB GPU.
+All experiments were run on the HPI SCI cluster using an NVIDIA A100 80GB GPU.
 
 ||Experiment|Type||||Credits|
 |--|:--|:--|--|--|--|--:|
