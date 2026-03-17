@@ -13,3 +13,4 @@ data_background/*
 src/__pycache__/*
 slurm/logs/*
 scripts/.venv
+submissions/*

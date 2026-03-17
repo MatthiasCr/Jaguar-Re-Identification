@@ -1,32 +1,14 @@
+# Jaguar Re-Identification 🐆
+
 [![](https://raw.githubusercontent.com/wandb/assets/main/wandb-github-badge-28-gray.svg)](https://wandb.ai/juggling-jaguars/jaguar-reid-jugglingjaguars)
 
-## Get Data
+This is the final project of the Seminar  "Applied Hands-On Computer Vision" at HPI. It evolves around a Kaggle competition about Jaguar Re-Identification ([Kaggle Link](https://www.kaggle.com/competitions/jaguar-re-id)).
 
-```
-$ kaggle competitions download -c jaguar-re-id
-```
+All runs are logged to a public [W&B project](https://wandb.ai/juggling-jaguars/jaguar-reid-jugglingjaguars). You can group the runs by experiment or filter them using tags.
 
-## Cluster Access
-
-```
-$ ssh sci
-```
-
-start gpu job
-
-```
-$ salloc --partition=gpu-interactive --account=sci-demelo-computer-vision --cpus-per-task=8 --mem=32G --time=08:00:00 --no-shell --job-name=vs-code --gpus=1 --constraint="GPU_SKU:A100"
-```
-
-start cpu job
-
-```
-$ salloc --partition=cpu-interactive --account=sci-demelo-computer-vision --cpus-per-task=8 --mem=32G --time=01:00:00 --no-shell --job-name=vs-code
-```
+![](images/wandb_dashboard.png)
 
 ## Experiments
-
-All experiments were run on the HPI SCI cluster using an NVIDIA A100 80GB GPU.
 
 ||Experiment|Type||||Credits|
 |--|:--|:--|--|--|--|--:|
@@ -42,3 +24,5 @@ All experiments were run on the HPI SCI cluster using an NVIDIA A100 80GB GPU.
 |10|Data with Background vs. without Background|EDA|[Documentation](LEADERBOARD_EXPERIMENTS.md#experiment-10---background-vs-no-background)|[Notebook](notebooks/10_background.ipynb)|[W&B Run Group](https://wandb.ai/juggling-jaguars/jaguar-reid-jugglingjaguars/groups/Experiment-10-Background/)|1|
 |11|Interpretability Visualization with Integrated Gradients|EDA|[Documentation](EDA_EXPERIMENTS.md#experiment-11---interpretability-with-integrated-gradients)|[Notebook](notebooks/11_interpretability.ipynb)|[W&B Run Group](https://wandb.ai/juggling-jaguars/jaguar-reid-jugglingjaguars/groups/Experiment-11-Interpretability)|1|
 |**Total**||||||**13**|
+
+All experiments were run on the HPI SCI cluster using an NVIDIA A100 80GB GPU.
