@@ -4,7 +4,7 @@
 [W&B Run Group](https://wandb.ai/juggling-jaguars/jaguar-reid-jugglingjaguars/groups/Experiment-1-Backbones) | 
 Kaggle Submission Score: 0.871 (EVA-02)| 
 
-The backbone creates the base embeddings and is therefore one of the most important parts of the model. Different backbones can have different architectures, different input and output sizes, and different number of parameters, so the decision can have important implications on performance but also on efficiency. In this experiment we want to compare 5 different backbones to see which one results the best mAP. 
+The backbone creates the base embeddings and is therefore one of the most important parts of the model. Different backbones can have different architectures, different input and output sizes, and different number of parameters, so the decision can have important implications on performance but also on efficiency. In this experiment we want to compare 5 different (frozen) backbones to see which one results the best mAP. 
 
 ### Setup
 
@@ -38,6 +38,7 @@ In the table below we report some essential metrics of the runs. More metrics su
 DINOv3 gives the strongest validation mAP in this setup, with EVA-02 close behind. On the test set in Kaggle, EVA-02 scored an even better public score of 0.871, while DINOv3 got only 0.841. We conclude that large ViT backbones are currently the best choice for this task. 
 EfficientNetB3 also performs surprisingly well for its tiny size in comparison and even outperforms ResNet50 and the much larger MegaDescriptor. That makes EfficientNetB3 a very space and compute efficient option. However, we only focus on achieving the best performance, so for leaderboard submissions we will prioritize EVA-02.
 
+![](images/e1_wandb_graphs.png)
 
 ## Experiment 2 - Loss Function Comparison
 
@@ -109,7 +110,7 @@ Next to the identity-balanced mAP on the validation data we also compute the mAP
 ### Results
 
 |run|backbone trainable params|epochs trained|time per epoch|best val mAP|best val mAP rerank|kaggle public score|
-|--|--:|--:|--:|--:|--:|--:|
+|--|-:|--:|--:|--:|--:|--:|
 |freeze all|0|60| 2.9 s|0.854|0.860|-|
 |train last 2|25,202,000|39|6.00 min|0.874|0.877|-|
 |train last 4|50,401,952|28|6.14 min|0.881|0.888|-|
@@ -121,6 +122,8 @@ Next to the identity-balanced mAP on the validation data we also compute the mAP
 The results show a clear monotonic trend: unfreezing more of the EVA-02 backbone consistently improves validation mAP, and full end-to-end fine-tuning performs best by a noticeable margin over the frozen baseline. This suggests that the pretrained features still benefit substantially from task-specific adaptation to jaguar re-identification. At the same time, the compute cost increases dramatically once the backbone is no longer cached, so the gain comes with a significant training-time tradeoff. 
 
 From the graphs we can also see that models with more trainable parameters have a steeper learning curve and converged earlier. This indicates that the additional trainable backbone capacity allows the model to adapt to the jaguar-specific identity cues much faster.
+
+We used the fully fine-tuned model to generate a Kaggle submission which improved our public score from `0.871` to `0.907`.
 
 ## Experiment 5 - Hyperparameter Search
 
@@ -136,8 +139,7 @@ In the previous experiments we fixed the general training hyperparameters such a
 
 We keep the overall model architecture fixed:
 
-- **Backbone:** EVA-02 Large (input size: 448)
-- **Training mode:** full backbone fine-tuning
+- **Backbone:** EVA-02 Large (full backbone fine-tuning)
 - **Loss/head:** ArcFace with `margin=0.5`, `scale=64`
 - **Optimizer:** AdamW
 - **Scheduler:** ReduceLROnPlateau with patience `2`
@@ -145,7 +147,7 @@ We keep the overall model architecture fixed:
 - **Seed:** `42`
 - **Reranking during validation:** enabled with `k1=20`, `k2=6`, `lambda=0.3`
 
-Similar to experiment 4, we not only calculate the identity-balanced mAP on the validation data, but also compute it again with k-reciprocal reranking applied. We use both metrics for the experiment evaluation. Deeper investigations about k-reciprocal reranking can be found in [experiment 6](#experiment-6---k-reciprocal-re-ranking).
+Similar to [experiment 4](#experiment-4---backbone-fine-tuning), we not only calculate the identity-balanced mAP on the validation data, but also compute it again with k-reciprocal re-ranking applied. We use both metrics for the experiment evaluation. Deeper investigations about k-reciprocal re-ranking can be found in [experiment 6](#experiment-6---k-reciprocal-re-ranking).
 
 ### Search Space
 
@@ -217,29 +219,36 @@ In W&B we analyzed the parameter importance with respect to the best validation 
 
 Several useful patterns emerge from the search:
 
-- **Batch size 16** dominates the top runs. All five best runs use batch size `16`.
-- **384 / 768** is a strong head size. Most top rerank results use `embedding_dim=384` and `hidden_dim=768`.
+- **Batch size 16** dominates the top runs. Four out of five best runs use batch size `16`.
+- **A larger head** is better. Most top rerank results use `embedding_dim=384` and `hidden_dim=768`.
 - **Low dropout helps.** The strongest runs use `0.2` or `0.3`. `0.4` appears less competitive.
 - **Both augmentation settings can work.** The best run according to the reranked mAP uses augmentation, but several other top runs perform best without it.
 - **Reranked ranking and plain mAP do not always choose the same winner.** One run achieves the best plain validation mAP (`0.936`) but is slightly behind the best reranked validation mAP (`0.937`).
 
 The W&B parameter importance analysis broadly supports these observations: among the tested hyperparameters, the head learning rate had the strongest estimated influence on validation mAP, followed by the hidden dimension and weight decay. At the same time, the negative correlations for train augmentation and batch size suggest that, within this search space, smaller batches and disabling augmentation were slightly more favorable on average, even though individual top runs still exist with augmentation enabled.
 
-The best run of the search is therefore [qriyulso](https://wandb.ai/juggling-jaguars/jaguar-reid-jugglingjaguars/groups/Experiment-5-HyperparameterSearch/runs/qriyulso) with a best validation mAP of **0.917** and a best reranked validation mAP of **0.937**. This run's configuration is different to the default configuration that we used in previous experiments (this one has a lower dropout, higher embedding and hidden dim and smaller batch size). This run therefore becomes the new default checkpoint for later experiments. We used it for a Kaggle submission (with reranking) which improved the Kaggle public score from `0.907` to `0.912`.
+The best run of the search is therefore [qriyulso](https://wandb.ai/juggling-jaguars/jaguar-reid-jugglingjaguars/groups/Experiment-5-HyperparameterSearch/runs/qriyulso) with a best reranked validation mAP of `0.937`. This run's configuration is different to the default configuration that we used in previous experiments (this one has a lower dropout, higher embedding and hidden dim and smaller batch size). This run therefore becomes the new default configuration for later experiments. We used it for a Kaggle submission (with reranking) which improved the Kaggle public score from `0.907` to `0.912`.
 
-## Experiment 6a - K-Reciprocal Re-Ranking Parameter Sweep
+## Experiment 6 - K-Reciprocal Re-Ranking
 
 | [Notebook](notebooks/06_k_reciprocal_re_ranking.ipynb) | 
-[W&B Project](https://wandb.ai/juggling-jaguars/jaguar-reid-jugglingjaguars/groups/Experiment-6-KReciprocalReRanking) | 
+[W&B Run Group](https://wandb.ai/juggling-jaguars/jaguar-reid-jugglingjaguars/groups/Experiment-6-KReciprocalReRanking) | 
 No new Kaggle submission | 
 
-We wanted to test whether the default k-reciprocal reranking parameters were already good enough for our current validation setup, or whether a small validation-only sweep over `k1` and `lambda_value` could still improve retrieval.
+This experiment is about k-reciprocal re-ranking, a post-processing technique applied to the similarity matrix. This experiment is split in two parts:
 
-### Setup
+- a) A sweep over the re-ranking parameters `k1` and `lambda` to determine the best configuration
+  - **Research question:** With a fixed model checkpoint, which re-ranking parameters work best?
+- b) A small meta-analysis of the 48 runs that we did for the hyperparameter search in [experiment 5](#experiment-5---hyperparameter-search), where we always computed plain mAP together with mAP after re-ranking.
+  - **Research question:** Does re-ranking improve identity-balanced mAP across different model configurations?
 
-We selected the best model from the hyperparameter search ([qriyulso](https://wandb.ai/juggling-jaguars/jaguar-reid-jugglingjaguars/groups/Experiment-5-HyperparameterSearch/runs/qriyulso)) and use it to compute the similarity matrix on the validation data once. Then we only tune the postprocessing on this matrix. The hyperparameters of the used model are:
+### Experiment 6a) Re-Ranking Parameter Sweep
 
-- **Backbone:** EVA-02 Large (fine-tuned end-to-end)
+We want to test whether the default k-reciprocal re-ranking parameters (`k1=20`, `k2=6`, `lambda=0.3`) are already good enough for our current validation setup, or whether a small validation-only sweep over `k1` and `lambda` can still improve retrieval.
+
+We select a model from the hyperparameter search in [experiment 5](#experiment-5---hyperparameter-search) (run ID: [k2pi28gh](https://wandb.ai/juggling-jaguars/jaguar-reid-jugglingjaguars/runs/k2pi28gh)) and use it to compute the similarity matrix on the validation data once. Then we only tune the post-processing on this matrix. The hyperparameters of the used model are:
+
+- **Backbone:** EVA-02 Large (full backbone fine-tuning)
 - **Head learning rate:** `3e-5`
 - **Backbone learning rate:** `3e-5`
 - **Weight decay:** `1e-4`
@@ -247,57 +256,52 @@ We selected the best model from the hyperparameter search ([qriyulso](https://wa
 - **Train augmentation:** off
 - **Batch size:** `16`
 - **Embedding / hidden dim:** `384 / 768`
-- **Best checkpoint epoch:** `21`
 
-We run a small grid search over the k-reciprocal re-ranking parameters:
+We run a small **grid search** over the k-reciprocal re-ranking parameters:
 
 - **`k1`** in `{10, 15, 20, 25, 30, 35, 40}`
-- **`lambda_value`** in `{0.05, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6}`
+- **`lambda`** in `{0.05, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6}`
 - **`k2`** fixed at `6`
 
-This leads to 49 runs in total. For each configuration we rerank the similarity matrix, compute the new validation mAP and compare it against both the no-rerank baseline and to the default rerank setting.
+This leads to 49 combinations in total. For each configuration we re-rank the similarity matrix, compute the new validation mAP and compare it against both the no-rerank baseline and to the default re-rank setting.
 
 ### Results
 
-|setting|val mAP rerank|
+The full results of the 49 configurations is uploaded to W&B as a table ([link](https://wandb.ai/juggling-jaguars/jaguar-reid-jugglingjaguars/runs/2inwxo7x)).
+
+|setting|val mAP|
 |--|--:|
-|no reranking|0.910|
-|default rerank (`k1=20`, `k2=6`, `lambda=0.3`)|**0.924**|
-|best grid-search result|**0.924**|
+|no re-ranking|0.910|
+|default re-ranking (`k1=20`, `k2=6`, `lambda=0.3`)|0.924|
+|best grid-search result|0.924|
 
-The validation sweep did **not** improve on the default reranking setup. The best searched configuration was again:
-
-- **`k1=20`**
-- **`k2=6`**
-- **`lambda_value=0.3`**
+The validation sweep did **not** improve on the default reranking setup. The best searched configuration was again: **`k1=20`, `k2=6`, `lambda=0.3`**, so exactly the same as the default configuration.
 
 This means the tuned search gained:
 
-- **`+0.014`** over no reranking
-- **`+0.000`** over the default reranking parameters
+- **`+0.014`** over no re-ranking
+- **`+0.000`** over the default re-ranking parameters
 
-So the practical conclusion is modest but useful: **for this checkpoint and this validation split, the existing rerank defaults were already as good as the tested alternatives**.
+So the practical conclusion is: For this model checkpoint and this validation split, the existing re-ranking defaults were already as good as the tested alternatives.
 
-### Limitations
+#### Limitations
 
-This result is based on **one specific checkpoint** and **one validation split**, so it should be interpreted as a targeted sanity check rather than a universal statement about reranking. In addition, the evaluated checkpoint was already selected with the same default reranking parameters (`k1=20`, `k2=6`, `lambda=0.3`), which biases the sweep toward rediscovering those defaults.
-
-We therefore treat this experiment mainly as a **sanity check**: it supports keeping the standard rerank parameters for later experiments, but it does **not** prove that reranking can no longer be improved in general.
+This result is based on one specific model checkpoint and one validation split, so it should be interpreted as a targeted sanity check rather than a universal statement about re-ranking. In addition, the evaluated model checkpoint was already selected based on the best re-ranked mAP using the same default re-ranking parameters (`k1=20`, `k2=6`, `lambda=0.3`), which biases the sweep toward rediscovering those defaults. We therefore treat this experiment mainly as a sanity check: it supports keeping the standard re-rank parameters for later experiments, but it does not prove that re-ranking can no longer be improved in general.
 
 
-## Experiment 6b - Reranking Effects During Hyperparameter Search
+### Experiment 6b) Re-ranking Effects During Hyperparameter Search
 
-During each hyperparameter search run we logged both plain validation mAP and reranked validation mAP in W&B. We use these results here only to understand whether reranking can change model ranking across runs; this is a different question from the main Experiment 6 sweep, which asks whether the default reranking parameters can be improved for one fixed checkpoint.
+During each run for the hyperparameter search ([experiment 5](#experiment-5---hyperparameter-search)) we logged both the validation mAP on the plain similarity matrix and the validation mAP on the re-ranked similarity matrix in W&B. We use these results here to understand how re-ranking changes validation mAP across different model configurations and whether re-ranking can change model ranking across runs. This is a different question from the experiment 6a) sweep, which asks whether the default re-ranking parameters can be improved for one **fixed** checkpoint.
 
-If we compare each run only at its **best saved checkpoint**, `best_val_mAP_rerank - best_val_mAP` is on average **`+0.003`**, and **30 of 48 runs** improve under reranking. Since these are best-checkpoint summaries from a search where reranking was already part of validation, they are informative about ranking shifts, but they should not be interpreted as a fully unbiased estimate of reranking gain.
+If we compare each run at its best saved checkpoint, then the difference `best_val_mAP_rerank - best_val_mAP` is on average **`+0.003`**. In total **30 out of 48 runs improve** under re-ranking, while 18 decrease in validation mAP. 
 
 The most important effect is the change in **model ranking**:
 
-- The best run by plain validation mAP is [qp8fg51n](https://wandb.ai/juggling-jaguars/jaguar-reid-jugglingjaguars/groups/Experiment-5-HyperparameterSearch/runs/qp8fg51n) with **`best_val_mAP = 0.936`**, but its reranked score is slightly lower at **`0.934`**.
-- The best run by reranked validation mAP is [qriyulso](https://wandb.ai/juggling-jaguars/jaguar-reid-jugglingjaguars/groups/Experiment-5-HyperparameterSearch/runs/qriyulso) with **`best_val_mAP_rerank = 0.937`**, even though its plain best mAP is only **`0.917`**.
-- The checkpoint used in the Experiment 6 sanity check is [k2pi28gh](https://wandb.ai/juggling-jaguars/jaguar-reid-jugglingjaguars/groups/Experiment-5-HyperparameterSearch/runs/k2pi28gh), a good example of a run that benefits meaningfully from reranking: **`0.910 -> 0.924`** at the best checkpoint.
+- The best run by plain validation mAP is [qp8fg51n](https://wandb.ai/juggling-jaguars/jaguar-reid-jugglingjaguars/groups/Experiment-5-HyperparameterSearch/runs/qp8fg51n) with **`best_val_mAP = 0.936`**, but its re-ranked score is slightly lower at **`0.934`**.
+- The best run by re-ranked validation mAP is [qriyulso](https://wandb.ai/juggling-jaguars/jaguar-reid-jugglingjaguars/groups/Experiment-5-HyperparameterSearch/runs/qriyulso) with **`best_val_mAP_rerank = 0.937`**, even though its plain best mAP is only **`0.917`**.
+- The checkpoint used in the Experiment 6a) [k2pi28gh](https://wandb.ai/juggling-jaguars/jaguar-reid-jugglingjaguars/groups/Experiment-5-HyperparameterSearch/runs/k2pi28gh) is a good example of a run that benefits meaningfully from re-ranking: **`0.910 -> 0.924`** at the best checkpoint.
 
-So the comparison in **W&B** supports two conclusions at once: first, reranking can matter enough to change which hyperparameter setting looks best; second, that does **not** contradict the main Experiment 6 result, because the sweep there only shows that for one rerank-friendly checkpoint the standard parameter choice (`k1=20`, `k2=6`, `lambda=0.3`) was already very hard to beat.
+Overall, these results suggest that re-ranking does help on average across different hyperparameter configurations, but the mean effect is fairly small (`+0.003`). At the same time, its influence on the relative ranking of runs is large enough to change which configuration appears to be the best overall model. This should be taken into account when comparing checkpoints. We therefore always compute both plain validation mAP as well as the re-ranked version in the following experiments.
 
 ## Experiment 7 - GeM Pooling
 
@@ -327,14 +331,14 @@ We keep the full training recipe fixed and change only the pooling layer inside 
 
 The two compared runs are:
 
-- **Default pooling**: standard backbone pooling as provided by the EVA model
+- **Default pooling**: standard backbone mean pooling as provided by the EVA model
 - **GeM pooling**: replace the default pooling with GeM using `p=3.0` and `eps=1e-6`
 
-This is a very targeted architectural test: if GeM helps here, the gain should come from better spatial aggregation rather than from a different optimizer, schedule, augmentation policy, or backbone. We train each version with three different training seeds (`42`, `43`, `44`) to avoid over-interpreting a single lucky run. Similar to the previous experiments we compute and report the validation mAP with and without reranking.
+This is a very targeted architectural test: if GeM helps here, the gain should come from better spatial aggregation rather than from a different optimizer, schedule, augmentation policy, or backbone. We train each version with three different training seeds (`42`, `43`, `44`), so six runs in total, in order to avoid over-interpreting a single lucky run. Similar to the previous experiments we compute and report the validation mAP with and without reranking.
 
 ### Results
 
-|variant|seeds|val mAP mean (std)|val mAP rerank mean (std) |
+|variant|seeds|best val mAP mean (std)|best rerank val mAP mean (std) |
 |--|--:|--:|--:|
 |Default pooling|3|0.917 (0.018)|**0.922** (0.021) 
 |GeM pooling|3|0.915 (0.028)|0.921 (0.0289)|
@@ -347,14 +351,14 @@ Seed-wise results:
 |43|0.9372|0.9468|+0.0096|0.9454|0.9537|+0.0083|
 |44|0.9068|0.9008|-0.0060|0.9079|0.9039|-0.0040|
 
-Across the paired seeds, the mean GeM-minus-default difference is:
+Across the paired seeds, the mean GeM-minus-Default difference is:
 
 - **`-0.0021`** in plain validation mAP
 - **`-0.0004`** in reranked validation mAP
 
-So GeM does not show a consistent improvement in this experiment. It helps on seed `43`, but loses on seeds `42` and `44`, and the average reranked result is almost unchanged.
+So GeM does not show a consistent improvement in this experiment. It helps on seed `43`, but loses on seeds `42` and `44`, and the average reranked result is slightly worse with GeM.
 
-With the current seed sweep, the answer to the research question is: GeM pooling does **not convincingly** improve retrieval quality. The GeM variant is competitive, but there is no reliable mean improvement over default pooling, so we do not treat GeM as a clearly better replacement in this setup.
+With the current seed sweep, the answer to the research question is: GeM pooling does not improve retrieval quality. The GeM variant is competitive, but there is no reliable mean improvement over default pooling, so we do not treat GeM as a clearly better replacement in this setup.
 
 ![](images/e7_wandb_graphs.png)
 
@@ -364,7 +368,7 @@ With the current seed sweep, the answer to the research question is: GeM pooling
 [W&B Run Group](https://wandb.ai/juggling-jaguars/jaguar-reid-jugglingjaguars/groups/Experiment-8-TestTimeAugmentation) | 
 No new Kaggle submission (no validation improvement) | 
 
-After establishing a strong EVA-02 fine-tuned baseline, we tested whether deterministic test-time augmentation can improve retrieval performance at inference time. The central question was simple: does TTA help our current model enough to justify the additional inference cost?
+After establishing a strong EVA-02 fine-tuned baseline, we want to test whether test-time augmentation (TTA) can improve retrieval performance at inference time. **Research question**: Does TTA help our current model enough to justify the additional inference cost?
 
 ### Setup
 
@@ -396,9 +400,9 @@ We therefore conclude that **deterministic crop-based TTA does not provide a mea
 | [Notebook](notebooks/10_background.ipynb) | 
 [W&B Run Group](https://wandb.ai/juggling-jaguars/jaguar-reid-jugglingjaguars/groups/Experiment-10-Background/) | Round 1 public score: 0.912 | Round 2 public score: 0.899 |
 
-In all previous experiments we always used the full images with background information and just ignored the alpha mask. In this experiment we use the dataset of the **Kaggle competition round 2** which does not include background information at all. We train our best model on both datasets and compare its performance.
+In all previous experiments we always used the complete images with background information and just ignored the alpha mask. In this experiment we use the dataset of the **Kaggle competition round 2** which does not include background information at all. We train our best model on both datasets and compare its performance.
 
-**Research question:** Does our currently best model's performance (mAP) change when it is trained and evaluated on data without background? How does a model trained on data with background performs when applied on data without background and otherwise?
+**Research question:** How does our currently best model configuration perform (mAP) when it is trained and evaluated on data without background? How does a model trained on data with background perform when applied on data without background and otherwise?
 
 ### Setup
 
@@ -407,12 +411,7 @@ We keep the model configuration fixed (EVA-02, ArcFace, Reranking, all training 
 - **data_with_background**: images of Kaggle competition round 1, including RGB background
 - **data_without_background**: images of Kaggle competition round 2, with background completely removed
 
-To make the comparison fair both runs:
-
-- use the same model and training hyperparameters
-- enforces a shared validation split across both datasets (so the same images appear in train/val  respecively)
-- trains a fresh model on each dataset
-- runs a **2x2 cross-evaluation**:
+To make the comparison fair we enforce a **shared validation split** across both datasets, so the train and val partitions of both datasets include the same images (only with or without background). We train a fresh model on each dataset and run a **2x2 cross-evaluation**:
   - train on `data_with_background`, evaluate on `data_with_background`
   - train on `data_with_background`, evaluate on `data_without_background`
   - train on `data_without_background`, evaluate on `data_with_background`
@@ -429,13 +428,13 @@ The results of the two runs are in the following table. We used both models to c
 |with background|with background|**0.9070**|**0.9095**|0.912 (round 1)|
 |without background|without background|0.8845|0.9010|0.899 (round 2)|
 
+The model trained and evaluated on data with background achieves a better result than the model that is trained and evaluated on the data without background. However, when using k-reciprocal re-ranking, the difference in validation mAP becomes small (+0.008 when using data with background). This shows that our model and hyperparameter configuration is generally suitable for both versions of the data.
+
 Cross-evaluation shows a stronger effect:
 
 |train data|eval data|val mAP|val mAP rerank|
 |--|--|--:|--:|
 |with background|without background|0.6314|0.6486|
 |without background|with background|0.8311|0.8470|
-
-The model trained and evaluated on data with background achieves a better result than the model that is trained and evaluated on the data without background. However, when using k-reciprocal re-ranking, the difference in validation mAP becomes small (+0.008 when using data with background). This shows that our model and hyperparameter configuration is generally suitable for both versions of the data.
 
 When evaluated on the opposite dataset, both models degrade significantly, especially the model trained on data **with** background and evaluated on the data **without** background. This suggests that the background RGB values are not just harmless noise. They appear to create a real domain shift that the model learns to rely on, so moving from data with background to data without background changes the image distribution enough that embeddings no longer transfer cleanly between the two datasets.
