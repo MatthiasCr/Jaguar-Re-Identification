@@ -177,7 +177,7 @@ We score all validation images with the model's predicted cosine class score and
 
 ![](interpretability_results/correct_predictions_IG.png)
 
-We do the same with a misclassified images, viszalized below. These maps are generally slighlty harder to interpret and look less coherent than for the correct predictions.
+We do the same with some misclassified images, viszalized below. These maps are generally slighlty harder to interpret and look less coherent than for the correct predictions.
 
 ![](interpretability_results/misclassifications_IG.png)
 
