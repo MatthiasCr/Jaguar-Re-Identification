@@ -6,6 +6,8 @@ from src.reranking import rerank_embeddings
 
 
 def build_optimizer(model, config):
+    """used to build an AdamW optimizer that has a different learning rate for head and backbone"""
+
     head_lr = config.get("head_learning_rate", config.get("learning_rate", 1e-4))
     backbone_lr = config.get("backbone_learning_rate", head_lr * 0.1)
     weight_decay = config.get("weight_decay", 1e-4)
@@ -152,31 +154,6 @@ def extract_head_embeddings(model, loader, device):
     embeddings = np.vstack(embeddings_list)
     labels = np.concatenate(labels_list)
     return embeddings, labels
-
-
-def compute_validation_map(model, loader, device, use_rerank=False, k1=20, k2=6, lambda_value=0.3):
-    embeddings, labels = extract_embeddings(model, loader, device)
-    return compute_map_from_embeddings(
-        embeddings,
-        labels,
-        use_rerank=use_rerank,
-        k1=k1,
-        k2=k2,
-        lambda_value=lambda_value,
-    )
-
-
-def compute_validation_map_from_embeddings(model, loader, device, use_rerank=False, k1=20, k2=6, lambda_value=0.3):
-    embeddings, labels = extract_head_embeddings(model, loader, device)
-    return compute_map_from_embeddings(
-        embeddings,
-        labels,
-        use_rerank=use_rerank,
-        k1=k1,
-        k2=k2,
-        lambda_value=lambda_value,
-    )
-
 
 def compute_map_from_embeddings(embeddings, labels, use_rerank=False, k1=20, k2=6, lambda_value=0.3):
     score_matrix = build_eval_score_matrix(

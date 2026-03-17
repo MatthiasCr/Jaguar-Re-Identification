@@ -29,11 +29,6 @@ def init_wandb(run_config, run_name, param_count, param_count_backbone=None):
     )
     return wandb
 
-
-def log_image(name, fig):
-    wandb.log({name: wandb.Image(fig)})
-
-
 def log_checkpoint_artifact(wandb_run, checkpoint_path, artifact_name, description="Model checkpoint"):
     checkpoint_path = Path(checkpoint_path)
     artifact = wandb.Artifact(
