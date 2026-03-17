@@ -98,6 +98,52 @@ From the W&B curves we can also see that the spread in validation mAP is larger 
 
 The conclusion is that training seed has a meaningful impact on final retrieval performance in this setup. Therefore, single-run comparisons should be interpreted carefully, and strong results should ideally be confirmed across multiple seeds.
 
+
+## Experiment 10 - Background vs. no Background
+
+| [Notebook](notebooks/10_background.ipynb) | 
+[W&B Run Group](https://wandb.ai/juggling-jaguars/jaguar-reid-jugglingjaguars/groups/Experiment-10-Background/) | Round 1 public score: 0.912 | Round 2 public score: 0.899 |
+
+In all previous experiments we always used the complete images with background information and just ignored the alpha mask. In this experiment we use the dataset of the **Kaggle competition round 2** which does not include background information at all. We train our best model on both datasets and compare its performance.
+
+**Research question:** How does our currently best model configuration perform (mAP) when it is trained and evaluated on data without background? How does a model trained on data with background perform when applied on data without background and otherwise?
+
+### Setup
+
+We keep the model configuration fixed (EVA-02, ArcFace, Reranking, all training hyperparameters) and compare two data sources:
+
+- **data_with_background**: images of Kaggle competition round 1, including RGB background
+- **data_without_background**: images of Kaggle competition round 2, with background completely removed
+
+To make the comparison fair we enforce a **shared validation split** across both datasets, so the train and val partitions of both datasets include the same images (only with or without background). We train a fresh model on each dataset and run a **2x2 cross-evaluation**:
+  - train on `data_with_background`, evaluate on `data_with_background`
+  - train on `data_with_background`, evaluate on `data_without_background`
+  - train on `data_without_background`, evaluate on `data_with_background`
+  - train on `data_without_background`, evaluate on `data_without_background`
+
+### Results
+
+![](images/e10_wandb_graphs.png)
+
+The results of the two runs are in the following table. We used both models to create a submission for their respective Kaggle competition. We report the resulting public scores in the following table too:
+
+|train data|eval data|val mAP|val mAP rerank|kaggle public score|
+|--|--|--:|--:|--:|
+|with background|with background|**0.9070**|**0.9095**|0.912 (round 1)|
+|without background|without background|0.8845|0.9010|0.899 (round 2)|
+
+The model trained and evaluated on data with background achieves a better result than the model that is trained and evaluated on the data without background. However, when using k-reciprocal re-ranking, the difference in validation mAP becomes small (+0.008 when using data with background). This shows that our model and hyperparameter configuration is generally suitable for both versions of the data.
+
+Cross-evaluation shows a stronger effect:
+
+|train data|eval data|val mAP|val mAP rerank|
+|--|--|--:|--:|
+|with background|without background|0.6314|0.6486|
+|without background|with background|0.8311|0.8470|
+
+When evaluated on the opposite dataset, both models degrade significantly, especially the model trained on data **with** background and evaluated on the data **without** background. This suggests that the background RGB values are not just harmless noise. They appear to create a real domain shift that the model learns to rely on, so moving from data with background to data without background changes the image distribution enough that embeddings no longer transfer cleanly between the two datasets.
+
+
 ## Experiment 11 - Interpretability with Integrated Gradients
 
 | [Notebook](notebooks/11_interpretability.ipynb) |
