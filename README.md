@@ -4,6 +4,8 @@
 
 This is the final project of the Seminar  "Applied Hands-On Computer Vision" at HPI. It is about a Kaggle competition about Jaguar Re-Identification ([Kaggle Link](https://www.kaggle.com/competitions/jaguar-re-id)).
 
+The written [Summary Report](Summary_Repor.pdf) is as PDF in this repo. The full documentation of the experiments are in the files [EDA_EXPERIMENTS](EDA_EXPERIMENTS.md) and [LEADERBOARD_EXPERIMENTS](LEADERBOARD_EXPERIMENTS.md). The table below lists all experiments with links to their documentation, notebook, and W&B run group. 
+
 All runs are logged to a public [W&B project](https://wandb.ai/juggling-jaguars/jaguar-reid-jugglingjaguars). You can group the runs by experiment (using `group by`->`group`) or filter them using tags.
 
 ![](images/wandb_dashboard.png)
