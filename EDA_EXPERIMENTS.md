@@ -57,7 +57,7 @@ Weighted sampling does improve average precision for some identites, but can hav
 | [Notebook](notebooks/09_seed_comparison.ipynb) |
 [W&B Run Group](https://wandb.ai/juggling-jaguars/jaguar-reid-jugglingjaguars/groups/Experiment-9-RandomSeeds) |
 
-After fixing the training parameters, we wanted to measure how much variance remains purely from the random seed. This is important because if seed-to-seed variance is large, then small differences between experimental tweaks can be misleading unless runs are repeated.
+After fixing the training parameters, we wanted to measure how much variance remains purely from the random seed. This is important because if seed-to-seed variance is large, then small differences between experimental tweaks can be misleading unless runs are repeated. In our setup the seed affects several parts of the pipeline, especially weight initialization in the ArcFace head and projection layers, and the order of batches during training.
 
 **Research Question:** How large is the performance variation caused purely by the random seed, and are single-run improvements large enough to be trusted without repetition?
 
@@ -73,9 +73,11 @@ We keep the full training configuration fixed and only vary the random seed. The
 - batch size `16`
 - reranking enabled with `k1=20`, `k2=6`, `lambda=0.3`
 
-We run the same experiment for 10 seeds (`42` to `51`) and compare the best validation metrics of each run.
+We run the same experiment for **10 seeds** (`42` to `51`) and compare the best validation metrics of each run.
 
 ### Results
+
+![](images/e9_wandb_graphs_spread.png)
 
 |seed|best val mAP|best val mAP rerank|best val loss|best epoch|epochs trained|
 |--:|--:|--:|--:|--:|--:|
@@ -90,10 +92,11 @@ We run the same experiment for 10 seeds (`42` to `51`) and compare the best vali
 |47|0.8880|0.8929|2.4787|9|17|
 |44|0.8866|0.8920|2.8812|21|25|
 
-Across the 10 seeds, the mean reranked validation mAP is **0.9109 +- 0.0166**. The best run reaches **0.9381** (seed 43), while the weakest run reaches **0.8920** (seed 44). This spread is substantial and larger than many of the marginal effects observed in later experiments such as deterministic TTA.
+Across the 10 seeds, the mean reranked validation mAP is **0.9109 +- 0.0166**. The best run reaches **0.9381** (seed 43), while the weakest run reaches **0.8920** (seed 44). This spread is substantial and larger than many of the marginal effects observed in other experiments such as GeM pooling ([experiment 7](LEADERBOARD_EXPERIMENTS.md#experiment-7---gem-pooling)), or Test-Time Augmentation ([experiment 8](LEADERBOARD_EXPERIMENTS.md#experiment-8---test-time-augmentation)).
 
-The conclusion is that training seed has a meaningful impact on final retrieval performance in this setup. Therefore, single-run comparisons should be interpreted carefully, and strong results should ideally be confirmed across multiple seeds or at least by repeating promising configurations.
+From the W&B curves we can also see that the spread in validation mAP is larger than the spread in validation loss or accuracy. This is plausible because mAP is a ranking-based retrieval metric and is therefore much more sensitive to relatively small shifts in the embedding space. Two runs can have similar classification metrics while still producing noticeably different neighbor rankings for individual identities, which then changes retrieval performance more strongly than it changes average loss or top-1 accuracy.
 
+The conclusion is that training seed has a meaningful impact on final retrieval performance in this setup. Therefore, single-run comparisons should be interpreted carefully, and strong results should ideally be confirmed across multiple seeds.
 
 ## Experiment 11 - Interpretability with Integrated Gradients
 
@@ -101,11 +104,50 @@ The conclusion is that training seed has a meaningful impact on final retrieval 
 [W&B Run Group](https://wandb.ai/juggling-jaguars/jaguar-reid-jugglingjaguars/groups/Experiment-11-Interpretability) |
 [Results Directory](interpretability_results/) |
 
-This experiment focuses on understanding which image regions drive the model's identity predictions. The notebook trains or loads an end-to-end ArcFace model with an unfrozen EfficientNetB3 backbone and then uses Integrated Gradients from Captum to visualize attribution heatmaps on validation images.
+This experiment focuses on understanding which image regions drive the model's identity predictions. Instead of treating the model as a black box and only comparing final mAP values, we want to inspect whether identity decisions are actually based on jaguar-specific fur patterns and body regions, or whether irrelevant context such as vegetation and background contributes strongly. We want to conduct this interpretability analysis using Integrated Gradients.
 
-The notebook also includes two additional sanity checks:
+**Research Question:** Which image regions contribute most to the model's identity prediction, and are these attribution maps meaningful under sanity and faithfulness checks?
 
-- a randomized-weights check to verify that the attribution maps lose structure when the trained weights are destroyed
-- a masking-based faithfulness test that measures how much embedding similarity drops when the most relevant pixels are removed
+### Setup
 
-The generated figures and CSV outputs are written to `interpretability_results/11_interpretability`.
+For the final version of this experiment we use an end-to-end **EfficientNetB3** ArcFace model. 
+
+The original idea was to conduct this interpretability analysis on our strongest leaderboard model which uses EVA-02 as backbone. However running Integrated Gradients on the full EVA-02 backbone exceeded the GPU memory of our available hardware (A100 80GB on the HPI sci cluster). We decided to do the interpretability experiment with an **EfficientNet3** backbone model instead. This is still meaningful: although EfficientNet performs clearly worse than the best EVA-02 model (best valdiation mAP of `~0.80` vs. `~0.91`), it is still a fully trained jaguar re-identification model and therefore allows us to study whether the learned decision process focuses on plausible jaguar identity cues at all.
+
+The interpretability analysis is performed on a fully fine-tuned, end-to-end EfficientNet-ArcFace model, not on cached embeddings. This is important because the attribution method must be able to propagate relevance from the final class score all the way back to the input pixels. We therefore train a complete model and wrap it as a cosine-score classifier for attribution.
+
+We use **Integrated Gradients** from Captum. The attribution target is the cosine class score induced by the trained ArcFace weights, not the margin-modified training logit.
+
+We also conduct two additional sanity checks:
+
+- **Randomization sanity check**  to verify that the attribution maps lose structure when the trained weights are destroyed
+- **Masking faithfulness test** that measures how much embedding similarity drops when the most relevant pixels are removed
+
+### Results
+
+We started by training the EfficientNetB3-Arcface model. The run is logged to W&B under the run ID [udul9c1d](https://wandb.ai/juggling-jaguars/jaguar-reid-jugglingjaguars/runs/udul9c1d).
+
+We score all validation images with the model's predicted cosine class score and inspect a small set of high-confidence correct predictions. We visualize the heatmaps below. The heatmaps are not extremely sharp, but they are also not uniformly spread across the whole image. In many cases, especially for the images of Bagua and Ousado, the strongest activations lie on contiguous parts of the jaguar body, such as the eyes, nose, mouth and also on the rosette pattern on the fur, rather than on the entire frame, which suggests that the model is using localized visual identity cues instead of responding completely arbitrarily. However Kamaikua's image is also an example where the attributions in the heatmaps are also largly scattered on the background. 
+
+![](interpretability_results/correct_predictions_IG.png)
+
+We do the same with a misclassified images, viszalized below. These maps are generally slighlty harder to interpret and look less coherent than for the correct predictions.
+
+![](interpretability_results/misclassifications_IG.png)
+
+#### Randomization Sanity Check
+
+For this sanity check we randomized the weights our model and did the attribution process again for the best scoring images. We can see that the heatmaps now are essentially black, which signifies that the structured attribution signal disappears once the learned weights are destroyed. This is what we would expect from a meaningful attribution method and therefore counts as a positive sanity-check result.
+
+![](interpretability_results/randomized_weights_sanity_check_IG.png)
+
+
+#### Masking Faithfulness Test
+
+For this test we choose 10 pairs of images: five true matches (images show the same jaguar) and 5 imposters (images show different jaguars). For each pair we calculate the embedding cosine similarity. Then we **mask out the top 10% most important pixels** according to the attribution maps and measure the similarity again. We do the same with a random mask of the **same number of pixels**. The results are visualized in the figure below. In the left plot are the drops in similarity per image pair: the first 5 pairs are true matches and the last 5 are imposters. We can see that for true matches the similarity drops when using the important-pixel mask are quite different but generally high, ranging from `0.16` to `0.96` with a mean drop of `0.52` (visualized in the right figure). The drops when using a random mask of the same size are much smaller. 
+
+For the imposters all drops are significantly smaller and on average even slightly negative (`0.049` for the important mask and `0.052` for the random mask). That means the prediction score even got slightly better after the masking.
+
+This is a meaningful faithfulness result for the true matches: masking pixels that Integrated Gradients marks as important damages the similarity much more strongly than masking a random region of equal size. For imposters the effect is weaker and less consistent, which is also plausible because there is no strong positive match signal that must be destroyed.
+
+![](interpretability_results/masking_faithfulness_similarity.png)
