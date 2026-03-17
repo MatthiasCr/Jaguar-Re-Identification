@@ -293,7 +293,7 @@ This result is based on one specific model checkpoint and one validation split, 
 
 During each run for the hyperparameter search ([experiment 5](#experiment-5---hyperparameter-search)) we logged both the validation mAP on the plain similarity matrix and the validation mAP on the re-ranked similarity matrix in W&B. We use these results here to understand how re-ranking changes validation mAP across different model configurations and whether re-ranking can change model ranking across runs. This is a different question from the experiment 6a) sweep, which asks whether the default re-ranking parameters can be improved for one **fixed** checkpoint.
 
-If we compare each run at its best saved checkpoint, then the difference `best_val_mAP_rerank - best_val_mAP` is on average **`+0.003`**. In total **30 out of 48 runs improve** under re-ranking, while 18 decrease in validation mAP. 
+If we compare each run at its best saved checkpoint, then the difference `best_val_mAP_rerank - best_val_mAP` is on average **`+0.003`**. In total, **30 out of 48 runs improve** under re-ranking, while 18 decrease in validation mAP. 
 
 The most important effect is the change in **model ranking**:
 
